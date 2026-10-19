@@ -4,7 +4,6 @@
 **Thuật toán chính:** User-based KNNBaseline, học độ lệch bằng ALS, kết hợp Pearson-baseline và shrinkage  
 **Dữ liệu:** MovieLens 100K  
 **Thời gian dự kiến:** 7–8 tuần  
-**Trạng thái:** Tài liệu thiết kế trước triển khai; chưa có ứng dụng, lệnh chạy đã kiểm thử hoặc kết quả thực nghiệm.
 
 ## 1. Giới thiệu
 
