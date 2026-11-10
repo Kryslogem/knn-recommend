@@ -18,16 +18,16 @@ def my_recommendations(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Top-N cho tôi, tính bằng mô hình KNNBaseline thật từ các điểm hiện hành của tôi."""
+    """Top-N for me, computed by the real KNNBaseline model from my current ratings."""
     if genre is not None and db.scalar(select(Genre.id).where(Genre.name == genre)) is None:
-        raise AppError(422, "unknown_genre", f"Thể loại không tồn tại: {genre}")
+        raise AppError(422, "unknown_genre", f"Unknown genre: {genre}")
     return request.app.state.recsvc.recommend_for(db, user.id, n, genre)
 
 
 @router.get("/{movie_id}/explain")
 def explain(movie_id: int, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Giải thích điểm dự đoán cho một phim: phân rã μ + b_user + b_item + phần láng giềng, và các láng giềng chính."""
+    """Explain the predicted rating for one film: the breakdown mu + b_user + b_item + neighbour term, and the main neighbours."""
     m = db.get(Movie, movie_id)
     if m is None or m.is_hidden:
-        raise AppError(404, "movie_not_found", "Không tìm thấy phim")
+        raise AppError(404, "movie_not_found", "Film not found")
     return request.app.state.recsvc.predict_one(db, user.id, movie_id)

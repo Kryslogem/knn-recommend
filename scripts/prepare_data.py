@@ -79,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
             "strategy": split_cfg["strategy"],
             "seed": split_cfg["seed"],
             "fractions": {k: split_cfg[k] for k in ("train", "validation", "test")},
-            "rounding": "n_test = floor(test*n + 0.5); n_val = floor(val*n + 0.5); train = phần còn lại",
+            "rounding": "n_test = floor(test*n + 0.5); n_val = floor(val*n + 0.5); train = the remainder",
         },
     )
     for name, n in manifest["summary"]["rows"].items():

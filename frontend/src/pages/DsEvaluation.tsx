@@ -5,20 +5,30 @@ import { get } from '../api/client'
 import type { CompareRow, Comparison, ErrorAnalysis, GroupRow, TuningRow } from '../api/types'
 import { PageTitle } from '../components/Layout'
 import { Card, ErrorState, Spinner } from '../components/ui'
+import { ALERT, GRID_STROKE, INK, MUTED, SERIES, TOOLTIP_STYLE } from './chartStyle'
 
-const COLORS = ['#4f46e5', '#0891b2', '#dc2626', '#d97706', '#059669', '#7c3aed']
-const f4 = (x: unknown) => (typeof x === 'number' ? x.toFixed(4) : '—')
+const f4 = (x: unknown) => (typeof x === 'number' ? x.toFixed(4) : '-')
+
+// Keyed by the stable model id so labels stay English even for results generated before the UI was translated.
+const MODEL_LABEL: Record<string, string> = {
+  popular: '1. Popular films',
+  bias_only: '2. Bias only',
+  knn_basic: '3. KNNBasic (plain Pearson)',
+  knn_baseline_no_shrinkage: '4. KNNBaseline, no shrinkage',
+  knn_baseline: '5. KNNBaseline (full)',
+}
+const labelOf = (r: CompareRow) => MODEL_LABEL[r.model] ?? r.label
 
 function CompareTable({ rows, thr }: { rows: CompareRow[]; thr: number }) {
   const cols: { key: string; label: string; best: 'min' | 'max' }[] = [
     { key: 'rmse', label: 'RMSE', best: 'min' },
     { key: 'mae', label: 'MAE', best: 'min' },
-    { key: `precision@10_min${thr}`, label: `P@10 (≥${thr})`, best: 'max' },
-    { key: `recall@10_min${thr}`, label: `R@10 (≥${thr})`, best: 'max' },
-    { key: `ndcg@10_min${thr}`, label: `NDCG@10 (≥${thr})`, best: 'max' },
-    { key: 'ndcg@10', label: 'NDCG@10 (không lọc)', best: 'max' },
-    { key: `catalog_coverage_min${thr}`, label: 'Độ phủ danh mục', best: 'max' },
-    { key: 'prediction_coverage_knn', label: 'Dự đoán bằng KNN', best: 'max' },
+    { key: `precision@10_min${thr}`, label: `P@10 (>=${thr})`, best: 'max' },
+    { key: `recall@10_min${thr}`, label: `R@10 (>=${thr})`, best: 'max' },
+    { key: `ndcg@10_min${thr}`, label: `NDCG@10 (>=${thr})`, best: 'max' },
+    { key: 'ndcg@10', label: 'NDCG@10 (unfiltered)', best: 'max' },
+    { key: `catalog_coverage_min${thr}`, label: 'Catalog coverage', best: 'max' },
+    { key: 'prediction_coverage_knn', label: 'Predicted by KNN', best: 'max' },
   ]
   const best = (key: string, mode: 'min' | 'max') => {
     const v = rows.map((r) => r[key] as number)
@@ -26,24 +36,35 @@ function CompareTable({ rows, thr }: { rows: CompareRow[]; thr: number }) {
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="text-xs uppercase text-slate-500">
-          <tr><th className="pb-2">Mô hình</th>{cols.map((c) => <th key={c.key} className="pb-2 pr-2">{c.label}</th>)}</tr>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            {cols.map((c) => (
+              <th key={c.key}>{c.label}</th>
+            ))}
+          </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.model} className="border-t border-slate-100">
-              <td className="py-2 pr-3 font-medium">{r.label}</td>
+            <tr key={r.model} className="num">
+              <td className="font-bold">{labelOf(r)}</td>
               {cols.map((c) => {
                 const v = r[c.key] as number
                 const isBest = v === best(c.key, c.best)
-                return <td key={c.key} className={`pr-2 font-mono ${isBest ? 'font-bold text-emerald-700' : ''}`}>{f4(v)}</td>
+                return (
+                  <td key={c.key} className={isBest ? 'bg-ink font-bold text-paper' : ''}>
+                    {f4(v)}
+                  </td>
+                )
               })}
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-slate-500">In đậm xanh = tốt nhất mỗi cột. MAE/RMSE tính trên mọi cặp giữ lại, kể cả cặp phải fallback. Xếp hạng tính trên người có ≥ 1 phim liên quan (rating ≥ 4).</p>
+      <p className="micro mt-3 opacity-70">
+        Inverted cell = best in the column. MAE and RMSE cover every held-out pair, including pairs that had to fall back. Ranking metrics cover users with at least one relevant film (rated 4 or more).
+      </p>
     </div>
   )
 }
@@ -54,13 +75,13 @@ function GroupChart({ title, rows }: { title: string; rows: GroupRow[] }) {
       <div className="h-56">
         <ResponsiveContainer>
           <BarChart data={rows}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="group" tick={{ fontSize: 11 }} />
-            <YAxis domain={[0.6, 'auto']} />
-            <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(3) : v)} />
+            <CartesianGrid stroke={GRID_STROKE} />
+            <XAxis dataKey="group" stroke={INK} />
+            <YAxis domain={[0.6, 'auto']} stroke={INK} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => (typeof v === 'number' ? v.toFixed(3) : v)} />
             <Legend />
-            <Bar dataKey="rmse_knn_baseline" name="KNNBaseline" fill="#4f46e5" />
-            <Bar dataKey="rmse_bias_only" name="Bias-only" fill="#94a3b8" />
+            <Bar dataKey="rmse_knn_baseline" name="KNNBaseline" fill={INK} isAnimationActive={false} />
+            <Bar dataKey="rmse_bias_only" name="Bias only" fill={MUTED} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -75,9 +96,9 @@ export function DsEvaluation() {
   const err = useQuery({ queryKey: ['ds-err'], queryFn: () => get<ErrorAnalysis>('/ds/evaluation/errors') })
 
   const thr = cmp.data?.config.serving.min_item_ratings ?? 0
-  const rows = cmp.data?.rows.filter((r) => r.split === split) ?? []
+  const rows = (cmp.data?.rows.filter((r) => r.split === split) ?? []).map((r) => ({ ...r, label: labelOf(r) }))
 
-  // Đường cong tuning: giữ các siêu tham số khác ở giá trị của cấu hình tốt nhất, thay đổi K và shrinkage.
+  // Tuning curves: other hyperparameters held at the best configuration; K and shrinkage vary.
   let curves: Record<string, number | string>[] = []
   let shrinks: number[] = []
   if (tune.data) {
@@ -95,14 +116,14 @@ export function DsEvaluation() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageTitle title="Đánh giá mô hình" subtitle="So sánh 5 mô hình trên cùng split, cùng tập ứng viên và cùng quy tắc fallback." />
+    <div className="space-y-8">
+      <PageTitle title="Evaluation" subtitle="Five models compared on the same split, the same candidate set and the same fallback rules." />
 
-      <Card title="Bảng so sánh">
-        <div className="mb-3 flex gap-2" role="tablist">
+      <Card title="Comparison table">
+        <div className="mb-4 flex flex-wrap gap-0" role="tablist">
           {(['test', 'validation'] as const).map((s) => (
-            <button key={s} role="tab" aria-selected={split === s} onClick={() => setSplit(s)} className={`rounded-md px-3 py-1 text-sm ${split === s ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>
-              {s === 'test' ? 'Test (đánh giá cuối)' : 'Validation (dùng để chọn tham số)'}
+            <button key={s} role="tab" aria-selected={split === s} onClick={() => setSplit(s)} className={`btn -ml-0.5 first:ml-0 ${split === s ? 'btn-solid' : ''}`}>
+              {s === 'test' ? 'Test (final)' : 'Validation (used for tuning)'}
             </button>
           ))}
         </div>
@@ -112,63 +133,131 @@ export function DsEvaluation() {
       </Card>
 
       {cmp.data && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card title={`RMSE (${split})`}>
-            <div className="h-56"><ResponsiveContainer><BarChart data={rows} layout="vertical" margin={{ left: 90 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" domain={[0.8, 'auto']} /><YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={170} /><Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(4) : v)} /><Bar dataKey="rmse" fill="#4f46e5" /></BarChart></ResponsiveContainer></div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card title={`RMSE (${split}), lower is better`}>
+            <div className="h-60">
+              <ResponsiveContainer>
+                <BarChart data={rows} layout="vertical" margin={{ left: 100 }}>
+                  <CartesianGrid stroke={GRID_STROKE} />
+                  <XAxis type="number" domain={[0.8, 1.1]} ticks={[0.8, 0.9, 1.0, 1.1]} stroke={INK} />
+                  <YAxis type="category" dataKey="label" width={190} stroke={INK} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => (typeof v === 'number' ? v.toFixed(4) : v)} />
+                  <Bar dataKey="rmse" fill={INK} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Card>
-          <Card title={`NDCG@10 với ngưỡng ≥ ${thr} rating (${split})`}>
-            <div className="h-56"><ResponsiveContainer><BarChart data={rows} layout="vertical" margin={{ left: 90 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={170} /><Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(4) : v)} /><Bar dataKey={`ndcg@10_min${thr}`} fill="#0891b2" /></BarChart></ResponsiveContainer></div>
+          <Card title={`NDCG@10 with >= ${thr} ratings (${split}), higher is better`}>
+            <div className="h-60">
+              <ResponsiveContainer>
+                <BarChart data={rows} layout="vertical" margin={{ left: 100 }}>
+                  <CartesianGrid stroke={GRID_STROKE} />
+                  <XAxis type="number" stroke={INK} />
+                  <YAxis type="category" dataKey="label" width={190} stroke={INK} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => (typeof v === 'number' ? v.toFixed(4) : v)} />
+                  <Bar dataKey={`ndcg@10_min${thr}`} fill={ALERT} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Card>
         </div>
       )}
 
-      <Card title="Tuning trên validation: RMSE theo K và shrinkage">
+      <Card title="Tuning on validation: RMSE by K and shrinkage">
         {tune.isLoading && <Spinner />}
         {tune.error && <ErrorState error={tune.error} retry={() => tune.refetch()} />}
         {curves.length > 0 && (
           <div className="h-64">
             <ResponsiveContainer>
               <LineChart data={curves}>
-                <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="k" label={{ value: 'K', position: 'insideBottom', offset: -2 }} /><YAxis domain={['auto', 'auto']} /><Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(4) : v)} /><Legend />
-                {shrinks.map((s, i) => <Line key={s} type="monotone" dataKey={`s${s}`} name={`shrinkage=${s}`} stroke={COLORS[i % COLORS.length]} dot />)}
+                <CartesianGrid stroke={GRID_STROKE} />
+                <XAxis dataKey="k" stroke={INK} label={{ value: 'K', position: 'insideBottom', offset: -2 }} />
+                <YAxis domain={['auto', 'auto']} stroke={INK} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => (typeof v === 'number' ? v.toFixed(4) : v)} />
+                <Legend />
+                {shrinks.map((s, i) => (
+                  <Line key={s} type="linear" isAnimationActive={false} connectNulls dataKey={`s${s}`} name={`shrinkage=${s}`} stroke={SERIES[i % SERIES.length].stroke} strokeDasharray={SERIES[i % SERIES.length].dash} strokeWidth={2} dot={{ r: 3, strokeWidth: 0, fill: SERIES[i % SERIES.length].stroke }} />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
         )}
-        <p className="mt-2 text-xs text-slate-500">Các siêu tham số còn lại giữ ở cấu hình tốt nhất. Lưu ý: cấu hình chốt nằm ở biên lưới (shrinkage lớn nhất) và bề mặt rất phẳng, nên chênh lệch giữa các cấu hình lân cận rất nhỏ.</p>
+        <p className="micro mt-3 opacity-70">
+          Other hyperparameters are held at the best configuration. Note: the chosen configuration sits on the edge of the grid (largest shrinkage) and the surface is very flat, so neighbouring configurations differ very little.
+        </p>
       </Card>
 
       {err.isLoading && <Spinner />}
       {err.error && <ErrorState error={err.error} retry={() => err.refetch()} />}
       {err.data && (
         <>
-          <h2 className="text-lg font-semibold">Phân tích lỗi (test, KNNBaseline so với Bias-only)</h2>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <GroupChart title="Theo mức hoạt động của người dùng" rows={err.data.by_user_activity} />
-            <GroupChart title="Theo độ phổ biến của phim (số rating train)" rows={err.data.by_item_popularity} />
-            <GroupChart title="Theo điểm thật" rows={err.data.by_true_rating} />
+          <h2 className="h-sec">Error analysis (test, KNNBaseline vs bias only)</h2>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <GroupChart title="By user activity" rows={err.data.by_user_activity} />
+            <GroupChart title="By film popularity (train ratings)" rows={err.data.by_item_popularity} />
+            <GroupChart title="By true rating" rows={err.data.by_true_rating} />
           </div>
-          <Card title="Theo số láng giềng thực dùng (KNNBaseline)">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500"><tr><th>Số láng giềng</th><th>Số cặp</th><th>RMSE</th><th>Sai số có dấu</th></tr></thead>
-              <tbody>{err.data.by_n_neighbors.map((g) => <tr key={g.group} className="border-t border-slate-100"><td className="py-1">{g.group}</td><td>{g.n}</td><td className="font-mono">{f4(g.rmse_knn_baseline)}</td><td className="font-mono">{f4(g.bias_knn_baseline)}</td></tr>)}</tbody>
-            </table>
+          <Card title="By number of neighbours actually used (KNNBaseline)">
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Neighbours</th>
+                    <th>Pairs</th>
+                    <th>RMSE</th>
+                    <th>Signed error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {err.data.by_n_neighbors.map((g) => (
+                    <tr key={g.group} className="num">
+                      <td className="font-bold">{g.group}</td>
+                      <td>{g.n}</td>
+                      <td>{f4(g.rmse_knn_baseline)}</td>
+                      <td>{f4(g.bias_knn_baseline)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
-          <Card title="10 dự đoán sai nặng nhất">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500"><tr><th>Phim</th><th>Thật</th><th>Dự đoán</th><th>Nguồn</th><th>Láng giềng</th><th>Rating train của phim</th></tr></thead>
-              <tbody>{err.data.worst_10.map((w, i) => <tr key={i} className="border-t border-slate-100"><td className="py-1">{w.movie}</td><td>{w.rating}</td><td className="font-mono">{w.est.toFixed(2)}</td><td>{w.source}</td><td>{w.n_neighbors}</td><td>{w.item_train_n}</td></tr>)}</tbody>
-            </table>
+          <Card title="Ten worst predictions">
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Film</th>
+                    <th>True</th>
+                    <th>Predicted</th>
+                    <th>Source</th>
+                    <th>Neighbours</th>
+                    <th>Train ratings of film</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {err.data.worst_10.map((w, i) => (
+                    <tr key={i} className="num">
+                      <td className="font-bold">{w.movie}</td>
+                      <td>{w.rating}</td>
+                      <td>{w.est.toFixed(2)}</td>
+                      <td>{w.source}</td>
+                      <td>{w.n_neighbors}</td>
+                      <td>{w.item_train_n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </>
       )}
 
-      <Card title="Giới hạn cần lưu ý">
-        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-          <li>Dữ liệu MovieLens 100K thu thập 1997–1998, danh mục cũ; chia ngẫu nhiên theo người dùng đo khả năng khôi phục sở thích bị che, không phải dự báo tương lai.</li>
-          <li>Phim giữ lại nghiêng về phim nhiều người chấm (thiên lệch phổ biến), nên mô hình phổ biến rất mạnh ở chỉ số xếp hạng; chênh lệch nhỏ giữa KNNBaseline và phổ biến chưa có khoảng tin cậy.</li>
-          <li>Ngưỡng số rating tối thiểu của phim được chọn trên validation với ràng buộc giữ ≥ 25% danh mục làm ứng viên; test đã được chạy hai lần (trước và sau khi thêm ngưỡng).</li>
-          <li>Phim chưa chấm không đồng nghĩa người dùng không thích; đánh giá offline không thay cho thử nghiệm với người dùng thật.</li>
+      <Card title="Limitations to keep in mind">
+        <ul className="list-disc space-y-2 pl-5">
+          <li>MovieLens 100K was collected in 1997-98 and the catalog is old. A random per-user split measures how well hidden tastes can be recovered, not how well the future can be predicted.</li>
+          <li>Held-out films skew toward heavily rated titles (popularity bias), so the popular-films baseline is very strong on ranking metrics. The small gap between KNNBaseline and popular films has no confidence interval.</li>
+          <li>The minimum-ratings threshold was chosen on validation while keeping at least 25% of the catalog as candidates. The test set was evaluated twice (before and after the threshold was added).</li>
+          <li>An unrated film is not necessarily disliked, and offline evaluation is no substitute for testing with real users.</li>
         </ul>
       </Card>
     </div>

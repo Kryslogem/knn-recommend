@@ -1,4 +1,4 @@
-"""Chức năng Data Scientist: dữ liệu, huấn luyện, phiên bản mô hình, đánh giá. Chỉ role=data_scientist."""
+"""Data scientist functions: data, training, model versions, evaluation. role=data_scientist only."""
 
 import csv
 import json
@@ -23,7 +23,7 @@ DS = Depends(require_role("data_scientist"))
 
 
 def _clean(o):
-    """NaN/Inf không hợp lệ trong JSON chuẩn → null."""
+    """NaN/Inf are invalid in standard JSON, so they become null."""
     if isinstance(o, float) and not math.isfinite(o):
         return None
     if isinstance(o, dict):
@@ -35,7 +35,7 @@ def _clean(o):
 
 def _read_json(path: Path, hint: str):
     if not path.exists():
-        raise AppError(404, "report_missing", f"Chưa có báo cáo ({path.name}). {hint}")
+        raise AppError(404, "report_missing", f"Report not available yet ({path.name}). {hint}")
     return _clean(json.loads(path.read_text(encoding="utf-8")))
 
 
@@ -46,13 +46,13 @@ def _reports(request: Request) -> Path:
 
 @router.get("/data/report")
 def data_report(request: Request):
-    return _read_json(_reports(request) / "data_report.json", "Chạy scripts/prepare_data.py.")
+    return _read_json(_reports(request) / "data_report.json", "Run scripts/prepare_data.py.")
 
 
 @router.get("/data/split")
 def data_split(request: Request):
     s = request.app.state.settings
-    return _read_json(s.path(s.processed_dir) / "split_manifest.json", "Chạy scripts/prepare_data.py.")
+    return _read_json(s.path(s.processed_dir) / "split_manifest.json", "Run scripts/prepare_data.py.")
 
 
 @router.post("/training-jobs", status_code=202)
@@ -70,14 +70,14 @@ def list_jobs(db: Session = Depends(get_db)):
 def get_job(job_id: int, db: Session = Depends(get_db)):
     j = db.get(TrainingJob, job_id)
     if j is None:
-        raise AppError(404, "job_not_found", "Không tìm thấy job")
+        raise AppError(404, "job_not_found", "Training job not found")
     return job_json(j)
 
 
 @router.get("/models")
 def list_models(request: Request, db: Session = Depends(get_db)):
     s = request.app.state.settings
-    sync_artifacts(db, s.path(s.artifacts_dir), s.path("."))  # gồm cả mô hình huấn luyện bằng CLI
+    sync_artifacts(db, s.path(s.artifacts_dir), s.path("."))  # includes models trained from the CLI
     return {"items": [model_json(m) for m in db.scalars(select(ModelVersion).order_by(ModelVersion.id.desc()))]}
 
 
@@ -85,21 +85,21 @@ def list_models(request: Request, db: Session = Depends(get_db)):
 def get_model(model_id: int, db: Session = Depends(get_db)):
     m = db.get(ModelVersion, model_id)
     if m is None:
-        raise AppError(404, "model_not_found", "Không tìm thấy phiên bản mô hình")
+        raise AppError(404, "model_not_found", "Model version not found")
     return model_json(m, detail=True)
 
 
 @router.post("/models/{model_id}/activate")
 def activate(model_id: int, request: Request, db: Session = Depends(get_db)):
-    """Hot-swap: nạp và kiểm tra artifact TRƯỚC, rồi mới thay mô hình đang phục vụ — không cần khởi động lại."""
+    """Hot-swap: load and validate the artifact FIRST, then replace the serving model. No restart needed."""
     m = db.get(ModelVersion, model_id)
     if m is None:
-        raise AppError(404, "model_not_found", "Không tìm thấy phiên bản mô hình")
+        raise AppError(404, "model_not_found", "Model version not found")
     s = request.app.state.settings
     try:
         bundle = load_artifact(s.path(m.artifact_path))
     except (OSError, ValueError, KeyError) as e:
-        raise AppError(409, "artifact_unavailable", f"Không nạp được artifact: {e}") from None
+        raise AppError(409, "artifact_unavailable", f"Could not load the artifact: {e}") from None
     request.app.state.registry.swap(bundle)
     set_active(db, m)
     request.app.state.recsvc.clear()
@@ -109,14 +109,14 @@ def activate(model_id: int, request: Request, db: Session = Depends(get_db)):
 
 @router.get("/evaluation/comparison")
 def comparison(request: Request):
-    return _read_json(_reports(request) / "comparison.json", "Chạy scripts/evaluate.py.")
+    return _read_json(_reports(request) / "comparison.json", "Run scripts/evaluate.py.")
 
 
 @router.get("/evaluation/tuning")
 def tuning(request: Request):
     p = _reports(request) / "tuning.csv"
     if not p.exists():
-        raise AppError(404, "report_missing", "Chưa có tuning.csv. Chạy scripts/tune.py.")
+        raise AppError(404, "report_missing", "tuning.csv is not available yet. Run scripts/tune.py.")
     with open(p, encoding="utf-8", newline="") as f:
         rows = [{k: (float(v) if v not in ("", None) and k != "" else None) for k, v in r.items()} for r in csv.DictReader(f)]
     return {"items": _clean(rows)}
@@ -124,4 +124,4 @@ def tuning(request: Request):
 
 @router.get("/evaluation/errors")
 def errors(request: Request):
-    return _read_json(_reports(request) / "error_analysis.json", "Chạy scripts/evaluate.py.")
+    return _read_json(_reports(request) / "error_analysis.json", "Run scripts/evaluate.py.")

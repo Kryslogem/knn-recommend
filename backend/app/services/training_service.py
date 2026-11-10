@@ -1,7 +1,7 @@
-"""Job huấn luyện chạy nền (thread). Mỗi lần chỉ một job; dùng chung ml.pipeline.run_training với CLI.
+"""Background training jobs (thread). One job at a time; shares ml.pipeline.run_training with the CLI.
 
-Dùng thread thay vì process cho đơn giản: một lần fit trên MovieLens 100K chỉ vài giây, nhưng bước đánh giá
-validation khá nặng CPU nên API có thể chậm hơn trong lúc job chạy.
+A thread (not a process) keeps this simple: one fit on MovieLens 100K takes seconds, but the validation
+evaluation is CPU-heavy, so the API may be slower while a job runs.
 """
 
 from __future__ import annotations
@@ -43,23 +43,23 @@ class TrainingService:
         return cfg
 
     def mark_interrupted(self) -> None:
-        """Job còn 'running/queued' từ lần chạy trước (server tắt giữa chừng) → failed."""
+        """Jobs left 'running/queued' by a previous run (server stopped midway) become failed."""
         with self.app.state.SessionLocal() as db:
             for j in db.scalars(select(TrainingJob).where(TrainingJob.status.in_(["queued", "running"]))):
                 j.status, j.finished_at = "failed", utcnow()
-                j.log += "\nBị gián đoạn do máy chủ khởi động lại."
+                j.log += "\nInterrupted because the server restarted."
             db.commit()
 
     def start(self, user_id: int, req: TrainRequest) -> int:
         s = self.app.state.settings
         if not (s.path(s.processed_dir) / "train.csv").exists():
-            raise AppError(409, "data_not_prepared", "Chưa có dữ liệu đã chia. Chạy scripts/prepare_data.py trước.")
+            raise AppError(409, "data_not_prepared", "The split data is not prepared yet. Run scripts/prepare_data.py first.")
         cfg = self.build_config(req)
-        with self._lock:  # chặn đua giữa hai yêu cầu đồng thời
+        with self._lock:  # guards against two simultaneous requests
             with self.app.state.SessionLocal() as db:
                 busy = db.scalar(select(TrainingJob.id).where(TrainingJob.status.in_(["queued", "running"])))
                 if busy:
-                    raise AppError(409, "job_running", f"Đang có job huấn luyện #{busy} chạy; hãy đợi job kết thúc.")
+                    raise AppError(409, "job_running", f"Training job #{busy} is already running; wait for it to finish.")
                 job = TrainingJob(started_by=user_id, status="queued", config=cfg, log="")
                 db.add(job)
                 db.commit()
@@ -87,17 +87,17 @@ class TrainingService:
                 row = register_bundle(db, load_artifact(res["path"]), s.path("."))
                 j = db.get(TrainingJob, job_id)
                 j.status, j.model_version_id, j.finished_at = "succeeded", row.id, utcnow()
-                j.log += f"Hoàn tất: phiên bản {res['version']}\n"
+                j.log += f"Finished: version {res['version']}\n"
                 db.commit()
-        except Exception as e:  # noqa: BLE001 - mọi lỗi phải được ghi vào job, không làm chết thread im lặng
+        except Exception as e:  # noqa: BLE001 - every failure must be recorded on the job, never kill the thread silently
             with SessionLocal() as db:
                 j = db.get(TrainingJob, job_id)
                 j.status, j.finished_at = "failed", utcnow()
-                j.log += f"LỖI {type(e).__name__}: {e}\n{traceback.format_exc(limit=3)}"
+                j.log += f"ERROR {type(e).__name__}: {e}\n{traceback.format_exc(limit=3)}"
                 db.commit()
 
     def wait(self, timeout: float | None = None) -> None:
-        """Dùng cho test."""
+        """Used by tests."""
         if self._thread:
             self._thread.join(timeout)
 

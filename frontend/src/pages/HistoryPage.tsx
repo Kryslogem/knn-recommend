@@ -5,7 +5,7 @@ import { get, qs } from '../api/client'
 import { useRating } from '../api/hooks'
 import type { HistoryItem, Page } from '../api/types'
 import { PageTitle } from '../components/Layout'
-import { StarRating } from '../components/StarRating'
+import { RatingInput } from '../components/RatingInput'
 import { EmptyState, ErrorState, Pagination, Skeleton, errText, useToast } from '../components/ui'
 
 function Row({ it }: { it: HistoryItem }) {
@@ -13,23 +13,23 @@ function Row({ it }: { it: HistoryItem }) {
   const toast = useToast()
   const value = rate.isPending ? rate.variables?.rating : it.rating
   return (
-    <tr className="border-t border-slate-100">
-      <td className="py-2 pr-3">
-        <Link to={`/movies/${it.movie.id}`} className="font-medium text-slate-900 hover:text-indigo-700">
+    <tr>
+      <td>
+        <Link to={`/movies/${it.movie.id}`} className="display text-base tracking-[-0.02em] hover:text-alert">
           {it.movie.title}
         </Link>
-        <div className="text-xs text-slate-500">{it.movie.genres.join(' · ')}</div>
+        <div className="micro mt-1">{it.movie.genres.join(' / ')}</div>
       </td>
-      <td className="py-2 pr-3">
-        <StarRating
+      <td>
+        <RatingInput
           size="sm"
           value={value}
           disabled={rate.isPending || clear.isPending}
           onChange={(rating) => rate.mutate({ movieId: it.movie.id, rating }, { onError: (e) => toast('err', errText(e)) })}
-          onClear={() => clear.mutate(it.movie.id, { onError: (e) => toast('err', errText(e)), onSuccess: () => toast('ok', 'Đã xóa điểm') })}
+          onClear={() => clear.mutate(it.movie.id, { onError: (e) => toast('err', errText(e)), onSuccess: () => toast('ok', 'Rating removed') })}
         />
       </td>
-      <td className="py-2 text-xs text-slate-500">{new Date(it.updated_at + 'Z').toLocaleString('vi-VN')}</td>
+      <td className="micro num">{new Date(it.updated_at + 'Z').toLocaleString('en-GB')}</td>
     </tr>
   )
 }
@@ -44,37 +44,39 @@ export function HistoryPage() {
   })
   return (
     <div>
-      <PageTitle title="Lịch sử đánh giá" subtitle="Sửa hoặc xóa điểm ở đây; đề xuất sẽ được tính lại ngay." />
+      <PageTitle title="My ratings" subtitle="Edit or remove a rating here. Your recommendations are recomputed immediately." />
       <select
-        className="mb-4 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm"
-        aria-label="Sắp xếp"
+        className="field mb-6 !w-auto"
+        aria-label="Sort order"
         value={sort}
         onChange={(e) => {
           setSort(e.target.value)
           setPage(1)
         }}
       >
-        <option value="recent">Mới chấm gần đây</option>
-        <option value="rating_desc">Điểm cao → thấp</option>
-        <option value="rating_asc">Điểm thấp → cao</option>
-        <option value="title">Tên A–Z</option>
+        <option value="recent">Recently rated</option>
+        <option value="rating_desc">Highest first</option>
+        <option value="rating_asc">Lowest first</option>
+        <option value="title">Title A-Z</option>
       </select>
       {q.isLoading && <Skeleton className="h-40" />}
       {q.error && <ErrorState error={q.error} retry={() => q.refetch()} />}
       {q.data && q.data.total === 0 && (
-        <EmptyState title="Bạn chưa chấm phim nào">
-          <Link to="/onboarding" className="text-indigo-700 underline">Bắt đầu chấm điểm</Link>
+        <EmptyState title="You have not rated any film">
+          <Link to="/onboarding" className="underline hover:text-alert">
+            Start rating &gt;&gt;&gt;
+          </Link>
         </EmptyState>
       )}
       {q.data && q.data.total > 0 && (
         <>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-4">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-slate-500">
+          <div className="panel overflow-x-auto p-2">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="pb-2">Phim</th>
-                  <th className="pb-2">Điểm của bạn</th>
-                  <th className="pb-2">Cập nhật</th>
+                  <th>Film</th>
+                  <th>Your rating</th>
+                  <th>Updated</th>
                 </tr>
               </thead>
               <tbody>

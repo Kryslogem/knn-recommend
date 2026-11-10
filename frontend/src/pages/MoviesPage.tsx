@@ -2,15 +2,15 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { get, qs } from '../api/client'
 import type { Movie, Page } from '../api/types'
-import { MovieCard } from '../components/MovieCard'
 import { PageTitle } from '../components/Layout'
+import { MovieCard } from '../components/MovieCard'
 import { EmptyState, ErrorState, Pagination, SkeletonGrid, useDebounce } from '../components/ui'
 
 const SORTS = [
-  ['title', 'Tên A–Z'],
-  ['popular', 'Phổ biến nhất'],
-  ['year_desc', 'Mới nhất'],
-  ['year_asc', 'Cũ nhất'],
+  ['title', 'Title A-Z'],
+  ['popular', 'Most rated'],
+  ['year_desc', 'Newest'],
+  ['year_asc', 'Oldest'],
 ] as const
 
 export function MoviesPage() {
@@ -38,21 +38,20 @@ export function MoviesPage() {
     setPage(1)
   }
 
-  const input = 'rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm'
   return (
     <div>
-      <PageTitle title="Danh mục phim" subtitle="Tìm phim theo tên, lọc theo thể loại hoặc năm rồi chấm điểm ngay trên thẻ." />
-      <div className="mb-4 flex flex-wrap gap-3">
-        <input className={`${input} w-64`} placeholder="Tìm theo tên phim…" aria-label="Tìm theo tên phim" value={q} onChange={(e) => reset(setQ)(e.target.value)} />
-        <select className={input} aria-label="Thể loại" value={genre} onChange={(e) => reset(setGenre)(e.target.value)}>
-          <option value="">Mọi thể loại</option>
+      <PageTitle title="Catalog" subtitle="Search by title, filter by genre or year, and rate directly on the card." />
+      <div className="mb-6 grid grid-cols-2 gap-3 border-2 border-ink p-3 md:grid-cols-[2fr_1.2fr_0.7fr_0.7fr_1fr]">
+        <input className="field col-span-2 md:col-span-1" placeholder="Search title…" aria-label="Search by title" value={q} onChange={(e) => reset(setQ)(e.target.value)} />
+        <select className="field" aria-label="Genre" value={genre} onChange={(e) => reset(setGenre)(e.target.value)}>
+          <option value="">All genres</option>
           {genres.data?.items.map((g) => (
             <option key={g}>{g}</option>
           ))}
         </select>
-        <input className={`${input} w-24`} placeholder="Từ năm" aria-label="Từ năm" inputMode="numeric" value={yearFrom} onChange={(e) => reset(setYearFrom)(e.target.value.replace(/\D/g, ''))} />
-        <input className={`${input} w-24`} placeholder="Đến năm" aria-label="Đến năm" inputMode="numeric" value={yearTo} onChange={(e) => reset(setYearTo)(e.target.value.replace(/\D/g, ''))} />
-        <select className={input} aria-label="Sắp xếp" value={sort} onChange={(e) => reset(setSort)(e.target.value as typeof sort)}>
+        <input className="field" placeholder="From year" aria-label="From year" inputMode="numeric" value={yearFrom} onChange={(e) => reset(setYearFrom)(e.target.value.replace(/\D/g, ''))} />
+        <input className="field" placeholder="To year" aria-label="To year" inputMode="numeric" value={yearTo} onChange={(e) => reset(setYearTo)(e.target.value.replace(/\D/g, ''))} />
+        <select className="field" aria-label="Sort order" value={sort} onChange={(e) => reset(setSort)(e.target.value as typeof sort)}>
           {SORTS.map(([v, l]) => (
             <option key={v} value={v}>
               {l}
@@ -60,13 +59,15 @@ export function MoviesPage() {
           ))}
         </select>
       </div>
-      {badYear && <p className="mb-3 text-sm text-red-600">Khoảng năm không hợp lệ (1800–2100, “từ” không lớn hơn “đến”).</p>}
+      {badYear && <p className="mb-3 font-bold text-alert">/// Invalid year range (1800-2100, and "from" must not exceed "to").</p>}
       {list.isLoading && <SkeletonGrid />}
       {list.error && <ErrorState error={list.error} retry={() => list.refetch()} />}
-      {list.data && list.data.items.length === 0 && <EmptyState title="Không có phim phù hợp">Thử bỏ bớt bộ lọc hoặc đổi từ khóa.</EmptyState>}
+      {list.data && list.data.items.length === 0 && (
+        <EmptyState title="No films match">Try removing a filter or changing the search term.</EmptyState>
+      )}
       {list.data && list.data.items.length > 0 && (
         <>
-          <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${list.isPlaceholderData ? 'opacity-60' : ''}`}>
+          <div className={`ruled grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${list.isPlaceholderData ? 'opacity-60' : ''}`}>
             {list.data.items.map((m) => (
               <MovieCard key={m.id} movie={m} />
             ))}

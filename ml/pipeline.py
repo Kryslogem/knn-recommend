@@ -50,13 +50,13 @@ def run_training(
     manifest = json.loads((processed_dir / "split_manifest.json").read_text(encoding="utf-8"))
     serving = cfg["serving"]
 
-    log("[1/3] Huấn luyện KNNBaseline (ALS + Pearson-baseline + shrinkage) trên train")
+    log("[1/3] Training KNNBaseline (ALS + Pearson-baseline + shrinkage) on the train split")
     t0 = time.time()
     knn = knn_from_config(cfg).fit(train)
     popular = PopularModel(serving["popular_bayes_m"]).fit(train)
     fit_seconds = time.time() - t0
 
-    log("[2/3] Đánh giá trên validation")
+    log("[2/3] Evaluating on the validation split")
     val_metrics, _ = evaluate_model(knn, val, train, catalog, min_item_ratings=int(serving["min_item_ratings"]))
 
     chash = config_hash(cfg)
@@ -83,8 +83,8 @@ def run_training(
     metrics = {
         "validation": val_metrics,
         "test": test_metrics,
-        "note": "Metrics test chỉ có khi cấu hình/split trùng với lần đánh giá chính thức (scripts/evaluate.py).",
+        "note": "Test metrics are present only when the configuration and split match the official evaluation (scripts/evaluate.py).",
     }
-    log("[3/3] Lưu artifact")
+    log("[3/3] Saving the artifact")
     path = save_artifact(models_dir / version, knn, popular, meta, metrics)
     return {"version": version, "path": path, "meta": meta, "metrics": metrics}

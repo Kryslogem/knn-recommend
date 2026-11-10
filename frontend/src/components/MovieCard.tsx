@@ -1,31 +1,35 @@
 import { Link } from 'react-router-dom'
 import { useRating } from '../api/hooks'
 import type { Movie } from '../api/types'
-import { StarRating } from './StarRating'
-import { useToast, errText } from './ui'
+import { RatingInput } from './RatingInput'
+import { errText, useToast } from './ui'
 
 export function MovieCard({ movie, children }: { movie: Movie; children?: React.ReactNode }) {
   const { rate, clear } = useRating()
   const toast = useToast()
   const pending = rate.isPending ? rate.variables?.rating : undefined
-  // Cập nhật lạc quan: hiện ngay điểm vừa bấm, tự quay về giá trị server nếu lỗi.
+  // Optimistic: show the rating just clicked at once; it snaps back to the server value on error.
   const value = pending ?? movie.my_rating
   return (
-    <article className="flex flex-col justify-between rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="flex h-full flex-col justify-between p-4">
       <div>
-        <Link to={`/movies/${movie.id}`} className="font-semibold text-slate-900 hover:text-indigo-700">
+        <p className="micro flex justify-between opacity-70">
+          <span>Film</span>
+          <span className="num">ID {String(movie.id).padStart(4, '0')}</span>
+        </p>
+        <Link to={`/movies/${movie.id}`} className="display mt-2 block text-[1.05rem] leading-[1.02] tracking-[-0.02em] hover:text-alert">
           {movie.title}
         </Link>
-        <p className="mt-1 text-xs text-slate-500">{movie.genres.join(' · ') || 'Chưa phân loại'}</p>
+        <p className="micro mt-2">{movie.genres.join(' / ') || 'Unclassified'}</p>
         {movie.avg_rating_train != null && (
-          <p className="mt-1 text-xs text-slate-500">
-            TB {movie.avg_rating_train.toFixed(2)} ★ · {movie.n_ratings_train} lượt chấm
+          <p className="micro num mt-1 opacity-70">
+            Avg {movie.avg_rating_train.toFixed(2)} · {movie.n_ratings_train} ratings
           </p>
         )}
         {children}
       </div>
-      <div className="mt-3">
-        <StarRating
+      <div className="mt-4">
+        <RatingInput
           size="sm"
           value={value}
           disabled={rate.isPending || clear.isPending}

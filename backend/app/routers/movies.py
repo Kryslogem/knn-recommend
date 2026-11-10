@@ -72,10 +72,10 @@ def popular(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Phim phổ biến (làm trơn Bayes, từ train) — dùng cho onboarding. Không gồm phim tôi đã chấm."""
+    """Popular films (Bayesian-smoothed, from train) for onboarding. Excludes films I have rated."""
     bundle = request.app.state.registry.get()
     if bundle is None:
-        raise AppError(503, "model_not_loaded", "Chưa có mô hình nào được kích hoạt")
+        raise AppError(503, "model_not_loaded", "No model is active yet")
     hidden = set(db.scalars(select(Movie.id).where(Movie.is_hidden.is_(True))))
     rated = set(db.scalars(select(Rating.movie_id).where(Rating.user_id == user.id)))
     top = bundle.popular.top_n(n, hidden | rated)
@@ -91,7 +91,7 @@ def popular(
 def movie_detail(movie_id: int, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     m = db.get(Movie, movie_id)
     if m is None or m.is_hidden:
-        raise AppError(404, "movie_not_found", "Không tìm thấy phim")
+        raise AppError(404, "movie_not_found", "Film not found")
     reg = request.app.state.registry
     out = movie_json(m, _my_ratings(db, user.id, [m.id]).get(m.id), reg.movie_stats(m.id))
     out.setdefault("my_rating", None)
@@ -101,8 +101,8 @@ def movie_detail(movie_id: int, request: Request, user: User = Depends(get_curre
 
 @router.get("/movies/{movie_id}/prediction")
 def movie_prediction(movie_id: int, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Điểm dự đoán cho tôi + giải thích (U09)."""
+    """Predicted rating for me plus an explanation (U09)."""
     m = db.get(Movie, movie_id)
     if m is None or m.is_hidden:
-        raise AppError(404, "movie_not_found", "Không tìm thấy phim")
+        raise AppError(404, "movie_not_found", "Film not found")
     return request.app.state.recsvc.predict_one(db, user.id, movie_id)

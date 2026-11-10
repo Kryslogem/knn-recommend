@@ -17,7 +17,7 @@ router = APIRouter(prefix="/ratings", tags=["ratings"])
 def _visible_movie(db: Session, movie_id: int) -> Movie:
     m = db.get(Movie, movie_id)
     if m is None or m.is_hidden:
-        raise AppError(404, "movie_not_found", "Không tìm thấy phim")
+        raise AppError(404, "movie_not_found", "Film not found")
     return m
 
 
@@ -44,7 +44,7 @@ def my_ratings(
 
 @router.put("/{movie_id}")
 def put_rating(movie_id: int, body: RatingIn, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Tạo hoặc cập nhật (upsert, idempotent): mỗi cặp user–phim có đúng một điểm hiện hành."""
+    """Create or update (upsert, idempotent): each user-film pair has exactly one current rating."""
     _visible_movie(db, movie_id)
     row = db.scalar(select(Rating).where(Rating.user_id == user.id, Rating.movie_id == movie_id))
     created = row is None
@@ -54,7 +54,7 @@ def put_rating(movie_id: int, body: RatingIn, request: Request, user: User = Dep
     elif row.rating != body.rating:
         row.rating, row.updated_at = body.rating, utcnow()
     db.commit()
-    request.app.state.recsvc.invalidate_user(user.id)  # NFR03: cập nhật điểm làm mới cache đề xuất
+    request.app.state.recsvc.invalidate_user(user.id)  # NFR03: changing a rating refreshes the recommendation cache
     return {"movie_id": movie_id, "rating": row.rating, "created": created, "updated_at": row.updated_at.isoformat()}
 
 
@@ -62,7 +62,7 @@ def put_rating(movie_id: int, body: RatingIn, request: Request, user: User = Dep
 def delete_rating(movie_id: int, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     row = db.scalar(select(Rating).where(Rating.user_id == user.id, Rating.movie_id == movie_id))
     if row is None:
-        raise AppError(404, "rating_not_found", "Bạn chưa chấm phim này")
+        raise AppError(404, "rating_not_found", "You have not rated this film")
     db.delete(row)
     db.commit()
     request.app.state.recsvc.invalidate_user(user.id)

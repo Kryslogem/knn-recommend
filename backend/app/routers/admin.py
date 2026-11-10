@@ -1,4 +1,4 @@
-"""Chức năng quản trị viên. Chỉ role=admin."""
+"""Admin functions. role=admin only."""
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
@@ -67,9 +67,9 @@ def users(
 def patch_user(user_id: int, body: UserPatch, request: Request, admin: User = ADMIN, db: Session = Depends(get_db)):
     u = db.get(User, user_id)
     if u is None or u.kind != "app":
-        raise AppError(404, "user_not_found", "Không tìm thấy tài khoản")
+        raise AppError(404, "user_not_found", "Account not found")
     if u.id == admin.id:
-        raise AppError(400, "self_modification", "Không thể tự đổi vai trò hoặc khóa chính mình")
+        raise AppError(400, "self_modification", "You cannot change your own role or lock your own account")
     if body.role is not None:
         u.role = body.role
     if body.is_active is not None:
@@ -87,7 +87,7 @@ def admin_movies(
     _: User = ADMIN,
     db: Session = Depends(get_db),
 ):
-    """Danh mục cho quản trị, gồm cả phim đang bị ẩn (khác /movies chỉ trả phim hiển thị)."""
+    """Catalog for admins, including hidden films (unlike /movies, which only returns visible ones)."""
     stmt = select(Movie)
     if q:
         esc = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -103,13 +103,13 @@ def admin_movies(
 def patch_movie(movie_id: int, body: MoviePatch, request: Request, _: User = ADMIN, db: Session = Depends(get_db)):
     m = db.get(Movie, movie_id)
     if m is None:
-        raise AppError(404, "movie_not_found", "Không tìm thấy phim")
+        raise AppError(404, "movie_not_found", "Film not found")
     if body.title is not None:
         m.title = body.title.strip()
     if body.is_hidden is not None:
         m.is_hidden = body.is_hidden
     db.commit()
-    request.app.state.recsvc.clear()  # ẩn/hiện phim làm đổi mọi danh sách đề xuất
+    request.app.state.recsvc.clear()  # hiding or showing a film changes every recommendation list
     return {**movie_json(m), "is_hidden": m.is_hidden}
 
 
@@ -117,9 +117,9 @@ def patch_movie(movie_id: int, body: MoviePatch, request: Request, _: User = ADM
 def movielens_recs(
     ml_user_id: int, request: Request, n: int = Query(10, ge=1, le=50), _: User = ADMIN, db: Session = Depends(get_db)
 ):
-    """Đề xuất cho một hồ sơ MovieLens (lịch sử train thật) để minh họa. Loại chính họ khỏi láng giềng."""
+    """Recommendations for one MovieLens profile (real training history), for demonstration. The profile is excluded from its own neighbours."""
     u = db.scalar(select(User).where(User.ml_user_id == ml_user_id))
     if u is None:
-        raise AppError(404, "user_not_found", "Không có hồ sơ MovieLens này (ID 1–943)")
+        raise AppError(404, "user_not_found", "No such MovieLens profile (IDs 1-943)")
     out = request.app.state.recsvc.recommend_for(db, u.id, n, exclude_user_id=ml_user_id, use_cache=False)
     return {**out, "ml_user_id": ml_user_id}

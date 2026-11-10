@@ -1,4 +1,4 @@
-// Client gọi backend. Mọi đường dẫn đi qua proxy /api của Vite.
+// Backend client. Every path goes through the Vite /api proxy.
 const BASE = '/api/v1'
 export const TOKEN_KEY = 'token'
 export const UNAUTHORIZED_EVENT = 'knn:unauthorized'
@@ -23,7 +23,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     res = await fetch(`${BASE}${path}`, { ...init, headers })
   } catch {
-    throw new ApiError(0, 'network', 'Không kết nối được máy chủ. Hãy kiểm tra backend đã chạy chưa.')
+    throw new ApiError(0, 'network', 'Cannot reach the server. Check that the backend is running.')
   }
   if (!res.ok) {
     let detail = res.statusText
@@ -33,9 +33,9 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       if (typeof body.detail === 'string') detail = body.detail
       if (typeof body.code === 'string') code = body.code
     } catch {
-      /* body không phải JSON */
+      /* body is not JSON */
     }
-    // Token hết hạn/không hợp lệ → đăng xuất (không áp dụng cho lỗi đăng nhập sai)
+    // Expired/invalid token: sign out (does not apply to a wrong-password login)
     if (res.status === 401 && token && !path.startsWith('/auth/login')) {
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
     }

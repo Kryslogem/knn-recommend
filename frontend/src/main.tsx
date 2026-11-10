@@ -12,7 +12,7 @@ import './index.css'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Không thử lại lỗi 4xx (sai quyền, không tìm thấy, 503 chưa có mô hình...) vì thử lại không giúp ích.
+      // Do not retry 4xx or 503 (forbidden, not found, no model loaded): retrying cannot help.
       retry: (count, err) => !(err instanceof ApiError && err.status >= 400 && err.status < 500) && !(err instanceof ApiError && err.status === 503) && count < 1,
       refetchOnWindowFocus: false,
     },

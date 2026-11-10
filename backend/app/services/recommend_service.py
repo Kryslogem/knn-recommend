@@ -53,7 +53,7 @@ class RecommendService:
     def _bundle(self):
         b = self.registry.get()
         if b is None:
-            raise AppError(503, "model_not_loaded", "Chưa có mô hình nào được kích hoạt. Data Scientist cần huấn luyện và kích hoạt một phiên bản.")
+            raise AppError(503, "model_not_loaded", "No model is active yet. A data scientist needs to train and activate a version.")
         return b
 
     @staticmethod
@@ -111,7 +111,7 @@ class RecommendService:
         out = self._finish(db, res, bundle, (time.perf_counter() - t0) * 1000)
         out["item"] = out["items"][0] if out["items"] else None
         if out["item"] is None:
-            out["message"] = "Mô hình hiện tại chưa biết phim này (không có trong dữ liệu huấn luyện)."
+            out["message"] = "The current model does not know this film (it is not in the training data)."
         del out["items"]
         return {**out, "cached": False}
 

@@ -96,7 +96,7 @@ def test_filters_and_thresholds(model, popular, train):
     res3 = recommend(model, popular, hist, n=10, exclude_ids=allowed)
     assert not {it["movie_id"] for it in res3["items"]} & allowed
     tiny = recommend(model, popular, hist, n=50, allowed_ids=list(allowed))
-    assert tiny["message"] and "Chỉ có" in tiny["message"]
+    assert tiny["message"] and tiny["message"].startswith("Only ")
 
 
 def test_cold_start_returns_popular(model, popular):

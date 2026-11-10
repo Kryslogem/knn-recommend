@@ -2,24 +2,24 @@ import { createContext, useCallback, useContext, useEffect, useState, type Butto
 import { ApiError } from '../api/client'
 import type { Source } from '../api/types'
 
-export function Spinner({ label = 'Đang tải…' }: { label?: string }) {
+export function Spinner({ label = 'Loading' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 p-6 text-slate-500" role="status">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
-      {label}
+    <div className="max-w-sm p-4" role="status">
+      <p className="micro mb-2">[ {label}… ]</p>
+      <div className="loading-bar" />
     </div>
   )
 }
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-slate-200 ${className}`} />
+  return <div className={`skeleton ${className}`} aria-hidden />
 }
 
 export function SkeletonGrid({ n = 8 }: { n?: number }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-hidden>
+    <div className="ruled grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-hidden>
       {Array.from({ length: n }, (_, i) => (
-        <Skeleton key={i} className="h-40" />
+        <div key={i} className="h-40 bg-paper-2" />
       ))}
     </div>
   )
@@ -27,66 +27,65 @@ export function SkeletonGrid({ n = 8 }: { n?: number }) {
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-      <p className="font-medium text-slate-700">{title}</p>
-      {children && <div className="mt-2 text-sm text-slate-500">{children}</div>}
+    <div className="panel p-8">
+      <p className="h-sec">[ {title} ]</p>
+      {children && <div className="mt-2 max-w-xl">{children}</div>}
     </div>
   )
 }
 
 export function ErrorState({ error, retry }: { error: unknown; retry?: () => void }) {
-  const msg = error instanceof ApiError ? error.message : error instanceof Error ? error.message : 'Đã xảy ra lỗi'
+  const msg = error instanceof Error ? error.message : 'Something went wrong'
   const code = error instanceof ApiError ? error.code : ''
   return (
-    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-      <p className="font-medium">{msg}</p>
-      {code === 'model_not_loaded' && <p className="mt-1">Nhờ Data Scientist huấn luyện và kích hoạt một phiên bản mô hình.</p>}
-      {retry && (
-        <button onClick={retry} className="mt-2 rounded border border-red-300 bg-white px-2 py-1 hover:bg-red-100">
-          Thử lại
-        </button>
-      )}
+    <div role="alert" className="border-2 border-alert">
+      <div className="bg-alert px-3 py-1 micro font-bold text-white">/// Error {code && `· ${code}`}</div>
+      <div className="p-3">
+        <p className="font-bold">{msg}</p>
+        {code === 'model_not_loaded' && <p className="mt-1">A data scientist needs to train and activate a model version.</p>}
+        {retry && (
+          <button onClick={retry} className="btn btn-sm mt-3">
+            Retry
+          </button>
+        )}
+      </div>
     </div>
   )
 }
 
 export function Button({ variant = 'primary', className = '', ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'danger' }) {
-  const styles = {
-    primary: 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-300',
-    ghost: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:text-slate-400',
-    danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300',
-  }[variant]
-  return <button {...p} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${styles} ${className}`} />
+  const v = { primary: 'btn btn-solid', ghost: 'btn', danger: 'btn btn-alert' }[variant]
+  return <button {...p} className={`${v} ${className}`} />
 }
 
 export function Card({ title, children, className = '' }: { title?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm ${className}`}>
-      {title && <h2 className="mb-3 font-semibold text-slate-800">{title}</h2>}
-      {children}
+    <section className={`panel ${className}`}>
+      {title && <h2 className="panel-head">{title}</h2>}
+      <div className="p-4">{children}</div>
     </section>
   )
 }
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+    <div className="p-4">
+      <p className="micro">{label}</p>
+      <p className="display num mt-2 text-4xl">{value}</p>
+      {hint && <p className="micro mt-2 opacity-70">{hint}</p>}
     </div>
   )
 }
 
-const SOURCE_STYLE: Record<Source, { label: string; cls: string; tip: string }> = {
-  knn: { label: 'KNN', cls: 'bg-indigo-100 text-indigo-800', tip: 'Dự đoán từ những người có gu giống bạn' },
-  baseline: { label: 'Điểm nền', cls: 'bg-amber-100 text-amber-800', tip: 'Không đủ láng giềng nên dùng điểm nền μ + b_user + b_item' },
-  popular: { label: 'Phổ biến', cls: 'bg-emerald-100 text-emerald-800', tip: 'Chưa có đánh giá của bạn nên hiện phim phổ biến' },
+const SOURCE: Record<Source, { label: string; cls: string; tip: string }> = {
+  knn: { label: 'KNN', cls: 'tag tag-solid', tip: 'Predicted from people with similar taste' },
+  baseline: { label: 'Baseline', cls: 'tag', tip: 'Not enough similar viewers: falls back to mu + user bias + item bias' },
+  popular: { label: 'Popular', cls: 'tag', tip: 'No ratings from you yet, so this is a popular film' },
 }
 export function SourceBadge({ source }: { source: Source }) {
-  const s = SOURCE_STYLE[source]
+  const s = SOURCE[source]
   return (
-    <span title={s.tip} className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.cls}`}>
+    <span title={s.tip} className={s.cls}>
       {s.label}
     </span>
   )
@@ -96,15 +95,15 @@ export function Pagination({ page, pageSize, total, onChange }: { page: number; 
   const pages = Math.max(1, Math.ceil(total / pageSize))
   if (pages <= 1) return null
   return (
-    <nav className="mt-4 flex items-center justify-center gap-3 text-sm" aria-label="Phân trang">
+    <nav className="mt-4 flex flex-wrap items-center gap-3" aria-label="Pagination">
       <Button variant="ghost" disabled={page <= 1} onClick={() => onChange(page - 1)}>
-        ← Trước
+        &lt;&lt; Prev
       </Button>
-      <span className="text-slate-600">
-        Trang {page}/{pages} · {total} kết quả
+      <span className="micro num">
+        Page {page} / {pages} · {total} results
       </span>
       <Button variant="ghost" disabled={page >= pages} onClick={() => onChange(page + 1)}>
-        Sau →
+        Next &gt;&gt;
       </Button>
     </nav>
   )
@@ -130,14 +129,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback((kind: Toast['kind'], text: string) => {
     const id = Date.now() + Math.random()
     setItems((x) => [...x, { id, kind, text }])
-    setTimeout(() => setItems((x) => x.filter((t) => t.id !== id)), 4000)
+    setTimeout(() => setItems((x) => x.filter((t) => t.id !== id)), 4500)
   }, [])
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2" aria-live="polite">
+      <div className="fixed bottom-4 right-4 z-50 flex max-w-sm flex-col gap-2" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className={`rounded-md px-4 py-2 text-sm text-white shadow-lg ${t.kind === 'ok' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+          <div key={t.id} className={`border-2 border-ink px-3 py-2 font-bold ${t.kind === 'ok' ? 'bg-ink text-paper' : 'bg-alert text-white'}`}>
+            <span className="micro mr-2">{t.kind === 'ok' ? '[ OK ]' : '[ ERROR ]'}</span>
             {t.text}
           </div>
         ))}
@@ -147,5 +147,5 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 export function errText(e: unknown): string {
-  return e instanceof Error ? e.message : 'Đã xảy ra lỗi'
+  return e instanceof Error ? e.message : 'Something went wrong'
 }

@@ -39,7 +39,7 @@ def validate_ratings(ratings: Mapping[int, int]) -> dict[int, int]:
     out = {}
     for m, r in ratings.items():
         if isinstance(r, bool) or not isinstance(r, (int, np.integer)) or not 1 <= int(r) <= 5:
-            raise ValueError(f"Rating không hợp lệ cho phim {m}: {r!r} (cần số nguyên 1–5)")
+            raise ValueError(f"Invalid rating for film {m}: {r!r} (must be an integer from 1 to 5)")
         out[int(m)] = int(r)
     return out
 
@@ -89,7 +89,7 @@ def neighbors_for_item(model: KNNModel, fi: FoldIn, item_index: int, top: int = 
     order = np.lexsort((np.arange(len(w)), -w))[:top]
     return [
         {
-            "label": f"Người xem #{n + 1}",
+            "label": f"Viewer #{n + 1}",
             "similarity": round(float(w[v]), 4),
             "rating": int(model.rm.R[v, item_index]),
             "common_items": int((model.rm.M[v] & fi.mask).sum()),
@@ -132,7 +132,7 @@ def recommend(
     message = None
 
     if fi.size == 0:
-        message = "Chưa có đánh giá hợp lệ — hiển thị phim phổ biến. Hãy chấm điểm vài phim để nhận đề xuất cá nhân hóa."
+        message = "No usable ratings yet, so these are popular films. Rate a few films to get personalized recommendations."
         excl = {int(m) for m in rm.item_ids[~ok]}
         items = [
             {
@@ -175,7 +175,7 @@ def recommend(
                 }
             )
         if len(items) < n:
-            message = f"Chỉ có {len(items)} phim thỏa bộ lọc/ngưỡng (yêu cầu {n})."
+            message = f"Only {len(items)} films satisfy the filters and threshold (requested {n})."
 
     summary = {s: sum(1 for it in items if it["source"] == s) for s in ("knn", "baseline", "popular")}
     return {

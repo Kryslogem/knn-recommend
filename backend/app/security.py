@@ -38,23 +38,23 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     if creds is None:
-        raise AppError(401, "not_authenticated", "Chưa đăng nhập")
+        raise AppError(401, "not_authenticated", "Not signed in")
     try:
         payload = jwt.decode(creds.credentials, request.app.state.settings.jwt_secret, algorithms=[ALGORITHM])
         user = db.get(User, int(payload["sub"]))
     except (jwt.PyJWTError, KeyError, ValueError):
-        raise AppError(401, "invalid_token", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn") from None
+        raise AppError(401, "invalid_token", "Your session is invalid or has expired") from None
     if user is None or user.password_hash is None:
-        raise AppError(401, "invalid_token", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn")
+        raise AppError(401, "invalid_token", "Your session is invalid or has expired")
     if not user.is_active:
-        raise AppError(403, "account_disabled", "Tài khoản đã bị khóa")
+        raise AppError(403, "account_disabled", "This account is locked")
     return user
 
 
 def require_role(*roles: str):
     def dep(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:
-            raise AppError(403, "forbidden", "Bạn không có quyền thực hiện thao tác này")
+            raise AppError(403, "forbidden", "You do not have permission to do this")
         return user
 
     return dep

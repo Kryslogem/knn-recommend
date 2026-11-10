@@ -43,7 +43,7 @@ def safe_extract(zip_path: Path, dest_dir: Path) -> None:
         for member in zf.infolist():
             target = (dest_root / member.filename).resolve()
             if dest_root != target and dest_root not in target.parents:
-                raise ValueError(f"Entry không an toàn trong zip: {member.filename}")
+                raise ValueError(f"Unsafe entry in zip: {member.filename}")
         zf.extractall(dest_root)
 
 
@@ -58,7 +58,7 @@ def fetch_movielens(url: str, raw_dir: str | Path, expected_sha256: str | None =
     digest = sha256_file(zip_path)
     if expected_sha256 and digest != expected_sha256.lower():
         raise ValueError(
-            f"SHA-256 không khớp cho {zip_path.name}: được {digest}, cấu hình {expected_sha256}"
+            f"SHA-256 mismatch for {zip_path.name}: got {digest}, config says {expected_sha256}"
         )
     extracted = raw_dir / "ml-100k"
     if not (extracted / "u.data").exists():

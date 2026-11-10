@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-USER_BINS = ([0, 30, 100, np.inf], ["ít (<30)", "vừa (30–99)", "nhiều (≥100)"])
-ITEM_BINS = ([-1, 0, 9, 49, np.inf], ["0 (không có trong train)", "1–9", "10–49", "≥50"])
-NB_BINS = ([-1, 0, 5, 20, np.inf], ["0", "1–5", "6–20", ">20"])
+USER_BINS = ([0, 30, 100, np.inf], ["low (<30)", "mid (30-99)", "high (100+)"])
+ITEM_BINS = ([-1, 0, 9, 49, np.inf], ["0 (not in train)", "1-9", "10-49", "50+"])
+NB_BINS = ([-1, 0, 5, 20, np.inf], ["0", "1-5", "6-20", ">20"])
 
 
 def _group(df: pd.DataFrame, key: pd.Series, preds: dict[str, pd.DataFrame]) -> list[dict]:
@@ -17,7 +17,7 @@ def _group(df: pd.DataFrame, key: pd.Series, preds: dict[str, pd.DataFrame]) -> 
         for name, p in preds.items():
             err = p.loc[idx, "est"] - p.loc[idx, "rating"]
             row[f"rmse_{name}"] = float(np.sqrt((err**2).mean()))
-            row[f"bias_{name}"] = float(err.mean())  # sai số có dấu: >0 là dự đoán cao hơn thật
+            row[f"bias_{name}"] = float(err.mean())  # signed error: > 0 means the prediction is above the true rating
         rows.append(row)
     return rows
 

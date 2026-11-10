@@ -34,7 +34,7 @@ def split_sizes(n: int, val_frac: float, test_frac: float) -> tuple[int, int, in
     n_val = _round_half_up(val_frac * n)
     n_train = n - n_val - n_test
     if n_train < 1:
-        raise ValueError(f"User với {n} rating không còn dòng nào cho train")
+        raise ValueError(f"A user with {n} ratings would have no training rows left")
     return n_train, n_val, n_test
 
 

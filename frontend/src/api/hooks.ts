@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { send } from './client'
 
-/** Chấm / xóa điểm. Sau khi đổi, làm mới đề xuất, lịch sử và danh mục (NFR03).
- *  Cố ý KHÔNG làm mới danh sách "phổ biến" để thẻ không biến mất ngay dưới con trỏ khi đang chấm. */
+/** Rate / clear a rating. Afterwards refresh recommendations, history and catalog (NFR03).
+ *  Deliberately does NOT refresh the "popular" list so cards do not vanish under the cursor while rating. */
 export function useRating() {
   const qc = useQueryClient()
   const invalidate = () => {

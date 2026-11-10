@@ -1,0 +1,30 @@
+{
+  "result": {
+    "requests": 300,
+    "end_to_end_ms": {
+      "p50": 49.77640000015526,
+      "p95": 69.93853000012678,
+      "p99": 75.64968500029863,
+      "max": 146.63280000058876
+    },
+    "fold_in_only_ms": {
+      "p50": 32.19,
+      "p95": 41.545,
+      "max": 108.9
+    },
+    "profile_size": {
+      "min": 14,
+      "median": 50.5,
+      "max": 479
+    }
+  },
+  "machine": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10",
+    "numpy": "2.5.4",
+    "logical_cpus": 20,
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700F",
+    "ram_gb": 15.8
+  },
+  "model": "knnbaseline-20261110-100639-5962b10f"
+}

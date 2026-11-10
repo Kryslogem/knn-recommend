@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import type { RecItem } from '../api/types'
 import { Button, SourceBadge } from './ui'
 
-const sign = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(2)}`
+const sign = (x: number) => `${x >= 0 ? '+' : '-'}${Math.abs(x).toFixed(2)}`
 
-/** Giải thích một đề xuất: nguồn, số láng giềng thực dùng và phân rã điểm μ + b_user + b_item + phần láng giềng. */
+/** Explains one recommendation: source, neighbours actually used, and the score breakdown mu + b_user + b_item + neighbour term. */
 export function ExplainDrawer({ item, onClose }: { item: RecItem; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -15,95 +15,107 @@ export function ExplainDrawer({ item, onClose }: { item: RecItem; onClose: () =>
   const b = item.breakdown
   const parts = b
     ? [
-        { key: 'μ', label: 'Điểm trung bình toàn hệ thống', v: b.mu, base: true },
-        { key: 'b_user', label: 'Xu hướng chấm điểm của bạn', v: b.b_user },
-        { key: 'b_item', label: 'Độ nổi trội của phim', v: b.b_item },
-        { key: 'KNN', label: `Phần điều chỉnh từ ${item.n_neighbors} người có gu giống bạn`, v: b.neighbor_term },
+        { key: 'mu', label: 'Global average rating', v: b.mu, base: true },
+        { key: 'b_user', label: 'How generously you rate', v: b.b_user },
+        { key: 'b_item', label: 'How well this film is rated overall', v: b.b_item },
+        { key: 'KNN', label: `Adjustment from ${item.n_neighbors} similar viewers`, v: b.neighbor_term },
       ]
     : []
   const maxSim = Math.max(...item.neighbors.map((n) => n.similarity), 1e-9)
   const maxAbs = Math.max(...parts.map((p) => Math.abs(p.v)), 1)
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex justify-end bg-ink/50" onClick={onClose}>
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={`Vì sao đề xuất ${item.movie.title}`}
-        className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-xl"
+        aria-label={`Why ${item.movie.title} was recommended`}
+        className="h-full w-full max-w-md overflow-y-auto border-l-4 border-ink bg-paper"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 border-b-2 border-ink bg-ink p-4 text-paper">
           <div>
-            <h2 className="text-lg font-semibold">{item.movie.title}</h2>
-            <p className="text-sm text-slate-500">{item.movie.genres.join(' · ')}</p>
+            <p className="micro opacity-70">Explanation / film {String(item.movie.id).padStart(4, '0')}</p>
+            <h2 className="display mt-2 text-xl">{item.movie.title}</h2>
+            <p className="micro mt-1">{item.movie.genres.join(' / ')}</p>
           </div>
-          <Button variant="ghost" onClick={onClose} aria-label="Đóng">
-            ✕
+          <button className="btn btn-sm" style={{ color: 'var(--color-paper)', borderColor: 'var(--color-paper)', background: 'transparent' }} onClick={onClose} aria-label="Close">
+            Close [esc]
+          </button>
+        </div>
+
+        <div className="space-y-5 p-4">
+          <div className="flex items-end gap-4">
+            <span className="display num text-6xl">{item.predicted_rating.toFixed(2)}</span>
+            <div className="pb-1">
+              <p className="micro">Predicted rating (1-5)</p>
+              <div className="mt-1">
+                <SourceBadge source={item.source} />
+              </div>
+            </div>
+          </div>
+
+          {item.source === 'knn' && (
+            <p>
+              Based on <b>{item.n_neighbors}</b> viewers with similar taste who have rated this film.
+            </p>
+          )}
+          {item.source === 'baseline' && (
+            <p>Only {item.n_neighbors} similar viewers have rated this film, which is too few, so the score uses the baseline only.</p>
+          )}
+          {item.source === 'popular' && <p>You have not rated any film the system knows yet, so this is a popular pick. Rate a few films to get personalized results.</p>}
+
+          {b && (
+            <div>
+              <h3 className="h-sec mb-3 !text-base">How the score is built</h3>
+              <ul className="ruled">
+                {parts.map((p) => (
+                  <li key={p.key} className="p-3">
+                    <div className="flex justify-between gap-3">
+                      <span>
+                        <span className="tag mr-2">{p.key}</span>
+                        {p.label}
+                      </span>
+                      <span className="num font-bold">{p.base ? p.v.toFixed(2) : sign(p.v)}</span>
+                    </div>
+                    <div className="mt-2 h-2 border-2 border-ink">
+                      <div className={`h-full ${p.base ? 'bg-ink/40' : p.v >= 0 ? 'bg-ink' : 'bg-alert'}`} style={{ width: `${Math.min(100, (Math.abs(p.v) / maxAbs) * 100)}%` }} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {b.clipped && <p className="micro mt-2">Total is outside 1-5 and was clamped to the limit.</p>}
+            </div>
+          )}
+
+          {item.neighbors.length > 0 && (
+            <div>
+              <h3 className="h-sec mb-3 !text-base">Most influential viewers (anonymous)</h3>
+              <ul className="ruled">
+                {item.neighbors.map((n) => (
+                  <li key={n.label} className="p-3" title={`Raw similarity: ${n.similarity}`}>
+                    <div className="flex justify-between">
+                      <span className="font-bold">{n.label}</span>
+                      <span>
+                        rated <b>{n.rating}/5</b>
+                      </span>
+                    </div>
+                    <p className="micro num mt-1">
+                      {Math.round((n.similarity / maxSim) * 100)}% as similar as your closest match · {n.common_items} films in common
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="border-2 border-ink p-3 micro leading-relaxed">
+            Note: the predicted rating estimates the score you might give. It is <b>not</b> the probability that you will like the film. A film you have not rated is not necessarily a film you have not seen.
+          </p>
+          <Button variant="ghost" onClick={onClose}>
+            Close
           </Button>
         </div>
-
-        <div className="mt-4 flex items-center gap-3">
-          <span className="text-3xl font-bold text-indigo-700">{item.predicted_rating.toFixed(2)}</span>
-          <div>
-            <p className="text-xs text-slate-500">điểm dự đoán cho bạn (1–5)</p>
-            <SourceBadge source={item.source} />
-          </div>
-        </div>
-
-        {item.source === 'knn' && <p className="mt-3 text-sm text-slate-700">Dựa trên <b>{item.n_neighbors}</b> người xem có gu giống bạn đã chấm phim này.</p>}
-        {item.source === 'baseline' && <p className="mt-3 text-sm text-slate-700">Chưa đủ người có gu giống bạn đã chấm phim này ({item.n_neighbors} người), nên điểm chỉ dựa trên điểm nền.</p>}
-        {item.source === 'popular' && <p className="mt-3 text-sm text-slate-700">Bạn chưa chấm phim nào mà hệ thống biết, nên đây là phim được nhiều người chấm cao. Hãy chấm vài phim để nhận đề xuất cá nhân hóa.</p>}
-
-        {b && (
-          <div className="mt-5">
-            <h3 className="mb-2 text-sm font-semibold text-slate-800">Điểm được tạo thành như thế nào</h3>
-            <ul className="space-y-2">
-              {parts.map((p) => (
-                <li key={p.key}>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-700">
-                      <code className="rounded bg-slate-100 px-1">{p.key}</code> {p.label}
-                    </span>
-                    <span className="font-mono">{p.base ? p.v.toFixed(2) : sign(p.v)}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 rounded bg-slate-100">
-                    <div
-                      className={`h-1.5 rounded ${p.base ? 'bg-slate-400' : p.v >= 0 ? 'bg-emerald-500' : 'bg-red-400'}`}
-                      style={{ width: `${Math.min(100, (Math.abs(p.v) / maxAbs) * 100)}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-            {b.clipped && <p className="mt-2 text-xs text-slate-500">Tổng vượt khoảng 1–5 nên được cắt về giới hạn.</p>}
-          </div>
-        )}
-
-        {item.neighbors.length > 0 && (
-          <div className="mt-5">
-            <h3 className="mb-2 text-sm font-semibold text-slate-800">Những người ảnh hưởng nhiều nhất (ẩn danh)</h3>
-            <ul className="space-y-2 text-sm">
-              {item.neighbors.map((n) => (
-                <li key={n.label} className="rounded border border-slate-200 p-2">
-                  <div className="flex justify-between">
-                    <span>{n.label}</span>
-                    <span>
-                      chấm <b>{n.rating}★</b>
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500" title={`Độ tương đồng gốc: ${n.similarity}`}>
-                    Giống bạn ~{Math.round((n.similarity / maxSim) * 100)}% (so với người giống nhất) · {n.common_items} phim chung
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <p className="mt-5 rounded bg-slate-50 p-3 text-xs text-slate-500">
-          Lưu ý: điểm dự đoán là ước lượng điểm bạn có thể chấm, <b>không phải xác suất bạn sẽ thích</b>. Phim chưa chấm không có nghĩa là bạn chưa xem.
-        </p>
       </aside>
     </div>
   )

@@ -35,12 +35,12 @@ def load_active_model(app: FastAPI) -> None:
             if row:
                 set_active(db, row)
         if row is None:
-            log.warning("Chưa có mô hình kích hoạt; /recommendations sẽ trả 503 cho đến khi kích hoạt.")
+            log.warning("No active model; /recommendations returns 503 until one is activated.")
             return
         try:
             app.state.registry.swap(load_artifact(s.path(row.artifact_path)))
         except (OSError, ValueError, KeyError) as e:
-            log.error("Không nạp được mô hình %s: %s", row.version, e)
+            log.error("Could not load model %s: %s", row.version, e)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

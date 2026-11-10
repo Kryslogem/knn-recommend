@@ -1,195 +1,183 @@
-# Hệ thống đề xuất phim cá nhân hóa bằng KNNBaseline
+# KNN/REC: personalized film recommender (KNNBaseline)
 
-**Môn học:** Hệ thống thông minh (Intelligent Systems)  
-**Thuật toán chính:** User-based KNNBaseline, học độ lệch bằng ALS, kết hợp Pearson-baseline và shrinkage  
-**Dữ liệu:** MovieLens 100K  
-**Thời gian dự kiến:** 7–8 tuần  
+[Tiếng Việt](README.vi.md) · [Project plan](PLAN.md) · [Original specification (vi)](desc.md)
 
-## 1. Giới thiệu
+A complete web system, from data pipeline to browser UI, that recommends films from your own ratings. It finds viewers with a taste like yours (user-based k-NN), after learning how generously each user rates and how well each film is rated overall (**KNNBaseline**: ALS-learned biases, Pearson-baseline similarity, shrinkage). Everything runs on real data, [MovieLens 100K](https://grouplens.org/datasets/movielens/100k/), and the recommendation is computed live inside the API, not precomputed.
 
-Dự án xây dựng ứng dụng nhận điểm đánh giá phim của người dùng và trả về danh sách phim phù hợp. KNN tìm những người có cách đánh giá tương đồng; mô hình học thêm xu hướng chấm điểm của người dùng và xu hướng điểm của phim để điều chỉnh dự đoán.
+Built for the *Intelligent Systems* course (HK261). The algorithm is implemented from scratch with NumPy (no recommender library), and covered by hand-computed tests.
 
-Xem tài liệu đầy đủ: [Mô tả dự án](Mo_ta_du_an_KNN_De_xuat_phim.md).
+| Recommendations with explanation | Data scientist: evaluation |
+|---|---|
+| ![For you](docs/screenshots/04-recommendations.png) | ![Evaluation](docs/screenshots/13-ds-evaluation.png) |
 
-## 2. Đầu vào và đầu ra
+More screens are in [`docs/screenshots/`](docs/screenshots/).
 
-| Giai đoạn | Đầu vào | Đầu ra |
-|---|---|---|
-| Huấn luyện | Các bộ `user_id, movie_id, rating` trong train | Độ lệch người dùng/phim, ma trận tương đồng, cấu hình và artifact mô hình |
-| Sử dụng | Hồ sơ và các điểm người dùng đã chấm | Top 10 phim chưa đánh giá, điểm dự đoán, nguồn và giải thích đề xuất |
+## What you get
 
-Ví dụ: người dùng chấm Toy Story 5 sao, Star Wars 5 sao và Fargo 2 sao. Hệ thống tìm các hồ sơ tương đồng và xếp hạng các phim khác. Đây chỉ là ví dụ đầu vào; kết quả cụ thể phải được tính từ mô hình thật. Người dùng cuối không phải tải dataset.
+| Role | What they can do |
+|---|---|
+| **User** | Register, rate films (1-5), search the catalog, get Top-N recommendations, see *why* a film was recommended (score breakdown and the anonymous neighbours behind it), edit or remove ratings and watch the list change immediately. A brand-new user sees popular films (cold start) until they rate a few. |
+| **Admin** | System overview (model in service, latency p50/p95, fallback rate), manage accounts (role, lock/unlock), hide films from the catalog and from all recommendations, preview recommendations for any MovieLens profile. |
+| **Data scientist** | Data quality report and train/validation/test split, launch training jobs with chosen hyperparameters, browse immutable model versions and **hot-swap** the active one without a restart, compare five models, view tuning curves and error analysis. |
 
-## 3. Mục tiêu và phạm vi
+Permissions are enforced on the server, not just hidden in the UI.
 
-- Xây dựng MVP có giao diện tìm phim, chấm điểm, xem lịch sử và nhận đề xuất.
-- Có bước học tham số thật, kết hợp với dự đoán từ láng giềng.
-- So sánh phim phổ biến, mô hình chỉ có bias, KNNBasic và KNNBaseline.
-- Dùng dữ liệu thực; đánh giá tái lập và tránh rò rỉ dữ liệu.
-- Có vai trò Người dùng, Quản trị viên và Data Scientist.
+## How it works
 
-MVP không phát phim, thanh toán hoặc phục vụ quy mô thương mại. Poster và trailer là mở rộng tùy chọn.
-
-## 4. KNNBaseline học gì?
-
-Mô hình điểm nền gồm:
-
-```text
-Điểm nền = trung bình toàn train + độ lệch người dùng + độ lệch phim
+```mermaid
+flowchart LR
+  subgraph Offline["Offline (CLI or training job)"]
+    D[MovieLens 100K] --> P[validate + split 70/15/15 per user]
+    P --> T[ALS biases + similarity + KNN]
+    T --> A[(versioned artifact)]
+  end
+  subgraph Online["Online (FastAPI)"]
+    U[user ratings in SQLite] --> F[fold-in: profile bias + similarity to all 943 training users]
+    A --> F
+    F --> R[Top-N + explanation]
+  end
+  R --> UI[React UI]
 ```
 
-Hai độ lệch được học bằng **ALS (Alternating Least Squares)** với regularization. Sau đó KNN tổng hợp phần đánh giá vượt lên hoặc thấp hơn điểm nền của các láng giềng. **SGD** là phương án học thay thế để thử nghiệm khi còn thời gian.
+- **Baseline:** `b_ui = mu + b_u + b_i`, with `b_u` and `b_i` learned by ALS with regularization.
+- **Neighbours:** Pearson similarity on the residuals `r - b`, damped by shrinkage when few films are shared. Prediction = baseline + similarity-weighted average of the neighbours' residuals; with fewer than `min_k` neighbours it falls back to the baseline.
+- **Web users are not in the training data**, so each request *folds the user in*: it estimates the profile bias, computes similarity against all training users, predicts, removes rated films and applies a minimum-ratings threshold per film. Details in [`ml/models/foldin.py`](ml/models/foldin.py).
+- **No leakage:** the split is per user with a fixed seed; biases, similarities and popularity come only from the train split; hyperparameters are chosen on validation; the test set is evaluated once per frozen configuration.
 
-| Thành phần | Cách xác định |
-|---|---|
-| Độ lệch người dùng và phim | Học từ train bằng tối ưu sai số |
-| Số láng giềng K, regularization, shrinkage | Chọn trên validation |
-| Láng giềng và điểm đề xuất | Tính từ artifact và hồ sơ hợp lệ khi dự đoán |
+### Measured results (test split, frozen configuration)
 
-Không gọi việc chọn K là học trọng số. Thuật toán này cũng không học embedding người dùng/phim như matrix factorization.
+| Model | RMSE | MAE | Recall@10 | NDCG@10 | Catalog coverage |
+|---|---:|---:|---:|---:|---:|
+| Popular films | 1.0342 | 0.8294 | 0.0640 | 0.0822 | 3.0% |
+| Bias only | 0.9423 | 0.7459 | 0.0496 | 0.0679 | 3.9% |
+| KNNBasic (plain Pearson) | 1.0181 | 0.8101 | 0.0569 | 0.0738 | 8.9% |
+| KNNBaseline, no shrinkage | 0.9347 | 0.7340 | 0.0445 | 0.0572 | 8.3% |
+| **KNNBaseline (full)** | **0.9281** | **0.7259** | 0.0633 | 0.0824 | 9.1% |
 
-## 5. Dataset
+Ranking metrics use films with at least 50 training ratings as candidates (threshold chosen on validation). Honest reading: KNNBaseline predicts ratings best and recommends a more varied set of films, but on ranking it is **on par with** the popular-films baseline (the gap is within noise, and there is no confidence interval). Offline evaluation also favours popular films, because held-out films skew popular. Re-create these numbers with the commands below; the full tables and error analysis are on the *Evaluation* page.
 
-**MovieLens 100K:** 100.000 lượt đánh giá của 943 người trên 1.682 phim; điểm từ 1 đến 5.
+## Quick start
 
-- [Trang chính thức](https://grouplens.org/datasets/movielens/100k/)
-- [Tải ZIP](https://files.grouplens.org/datasets/movielens/ml-100k.zip)
-- [README và điều kiện sử dụng](https://files.grouplens.org/datasets/movielens/ml-100k-README.txt)
-- [Bản sao trên Hugging Face](https://huggingface.co/datasets/includeno/movielens-100k/tree/main)
-
-Dùng `u.data` cho đánh giá và `u.item` cho thông tin phim. Ưu tiên nguồn GroupLens; không tự phân phối lại dữ liệu gốc trong repo. Dữ liệu cũ nên cần ghi giới hạn về danh mục phim và tính đại diện.
-
-## 6. Quy trình triển khai dự kiến
-
-1. Tải và kiểm tra dữ liệu; lưu nguồn, checksum và thống kê.
-2. Làm sạch cấu trúc, kiểm tra rating và liên kết mã phim.
-3. Chia tương tác theo người dùng: khoảng 70% train, 15% validation, 15% test; cố định seed.
-4. Học bias và xây tương đồng chỉ từ train.
-5. Thử cấu hình trên validation, chốt rồi đánh giá test.
-6. Tích hợp giao diện và lưu đánh giá bằng SQLite.
-7. Kiểm thử, hoàn thiện báo cáo PDF và demo.
-
-Không điền rating thiếu thành điểm 0. Không dùng điểm validation/test để tính bias hoặc hồ sơ train.
-
-## 7. Công nghệ và cấu trúc dự kiến
-
-Python, pandas/NumPy, Streamlit, SQLite; có thể dùng Surprise làm bản tham chiếu cho KNNBaseline. Phiên bản thư viện sẽ được cố định khi triển khai.
-
-| Đường dẫn dự kiến | Trách nhiệm |
-|---|---|
-| `app.py` | Giao diện |
-| `src/data/` | Đọc, kiểm tra và chia dữ liệu |
-| `src/models/` | Học bias, similarity và KNN |
-| `src/services/` | Đề xuất, fallback và quản lý hồ sơ |
-| `scripts/` | Các bước chuẩn bị, huấn luyện, đánh giá |
-| `configs/` | Cấu hình dữ liệu và mô hình |
-| `artifacts/` | Mô hình, split và metrics |
-| `tests/` | Kiểm tra thuật toán và tích hợp |
-| `docs/` | Báo cáo và sơ đồ |
-
-> **Cập nhật:** sản phẩm chuyển từ Streamlit sang website (backend FastAPI + frontend React). Kế hoạch triển khai đầy đủ: [PLAN.md](PLAN.md).
-
-**Hướng dẫn chạy (khung giai đoạn 0 — đã kiểm chứng trên Windows, Python 3.12, Node 24):**
+**Requirements:** Python 3.11+, Node 20+, and internet access once to download MovieLens 100K (about 5 MB) from GroupLens. Developed and verified on Windows 11 with Python 3.12 and Node 24; the macOS/Linux commands below are the standard equivalents and have not been run on those systems.
 
 ```bash
-# Backend
+git clone https://github.com/Kryslogem/knn-recommend.git
+cd knn-recommend
+
+# 1. Python environment
 python -m venv .venv
-.venv/Scripts/python -m pip install -r backend/requirements.txt   # Linux/macOS: .venv/bin/python
-cp .env.example .env
-.venv/Scripts/python -m uvicorn backend.app.main:app --reload --port 8000   # API docs: http://localhost:8000/docs
+#   activate it:  Windows PowerShell: .venv\Scripts\Activate.ps1
+#                 Windows Git Bash:   source .venv/Scripts/activate
+#                 macOS / Linux:      source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
 
-# Frontend (terminal khác)
+# 2. Data: download, verify SHA-256, validate, split (seed 42)
+python scripts/prepare_data.py
+
+# 3. Train with the committed configuration and activate it (about 1 minute)
+python scripts/train.py --activate
+
+# 4. Database + three demo accounts (admin, datasci, demo)
+python scripts/seed_db.py
+
+# 5. Backend (terminal 1). API docs: http://127.0.0.1:8000/docs
+python -m uvicorn backend.app.main:app --port 8000
+
+# 6. Frontend (terminal 2). App: http://localhost:5173
 cd frontend
 npm install
-npm run dev        # http://localhost:5173
-
-# Test
-.venv/Scripts/python -m pytest
+npm run dev
 ```
 
-**Chuẩn bị dữ liệu (giai đoạn 1, đã kiểm chứng):**
+Open <http://localhost:5173>. **Register** to try the user flow, or sign in as a demo account. `seed_db.py` generates random passwords for the demo accounts and a JWT secret, and writes them to `.env` (git-ignored, never printed): open `.env` and read `KNN_SEED_ADMIN_PASSWORD`, `KNN_SEED_DS_PASSWORD`, `KNN_SEED_USER_PASSWORD`. Usernames are `admin`, `datasci`, `demo`.
+
+The data scientist's **Evaluation** page needs reports that you generate once:
 
 ```bash
-.venv/Scripts/python scripts/prepare_data.py --config configs/data.yaml   # tải, kiểm tra SHA-256, làm sạch, chia 70/15/15 (seed 42)
-.venv/Scripts/python scripts/make_eda_figures.py                          # biểu đồ EDA (chỉ dùng train)
+python scripts/tune.py        # ~7 min: grid search on the validation split
+python scripts/evaluate.py    # ~4 min: five models; runs the test split once per configuration
 ```
 
-Kết quả: `data/processed/{train,validation,test}.csv`, `split_manifest.json`, `artifacts/reports/data_report.json`. Dữ liệu gốc không nằm trong repo; script tải trực tiếp từ GroupLens.
+## Trying it as a user
 
-**Tuning và đánh giá (giai đoạn 3, đã kiểm chứng; tuning ~7 phút, đánh giá ~4 phút):**
+1. Register, then rate at least 5 films on the onboarding screen.
+2. Open **For you**: each card shows the predicted rating, its source (`KNN`, `Baseline` or `Popular`) and how many similar viewers support it. Press **Why?** for the breakdown `mu + b_user + b_item + neighbour term` and the anonymous neighbours.
+3. Change a rating under **My ratings** and return to **For you**: the list is recomputed.
 
-```bash
-.venv/Scripts/python scripts/tune.py        # grid search trên VALIDATION, ghi configs/model.yaml + artifacts/reports/tuning.csv
-.venv/Scripts/python scripts/tune.py --only-threshold   # (tùy chọn, ~40 giây) chỉ chọn lại ngưỡng min_item_ratings, giữ cấu hình KNN
-.venv/Scripts/python scripts/evaluate.py    # 5 mô hình trên validation + test (chỉ chạy test một lần cho mỗi cấu hình; --force để chạy lại)
-.venv/Scripts/python scripts/smoke_models.py  # kiểm tra nhanh RMSE trên validation
-```
+## Training and model versions
 
-Kết quả: `artifacts/reports/{tuning.csv,comparison.csv,comparison.json,error_analysis.json}` và biểu đồ trong `artifacts/reports/figs/`. Các thư mục này không nằm trong repo; chạy lại script để tái tạo.
+- `python scripts/train.py --activate` fits on the train split, evaluates on validation and saves an immutable version in `artifacts/models/<version>/` (`model.npz`, `meta.json`, `metrics.json`).
+- As the data scientist you can also start a training job from the **Training** page (hyperparameters are validated), then **activate** the new version on **Model versions**. The server swaps the model in memory with no restart; a version that fails to load never replaces the working one.
+- Hyperparameters live in [`configs/model.yaml`](configs/model.yaml) (generated by `scripts/tune.py`); the tuning grid is [`configs/grid.yaml`](configs/grid.yaml); data settings and the split are in [`configs/data.yaml`](configs/data.yaml).
+- `python scripts/tune.py --only-threshold` re-chooses only the minimum-ratings threshold (about 40 s).
 
-**Huấn luyện và đề xuất (giai đoạn 4, đã kiểm chứng):**
+## API
 
-```bash
-.venv/Scripts/python scripts/train.py --activate                          # fit trên train, lưu artifacts/models/<version>/, ghi active.json
-.venv/Scripts/python scripts/demo_recommend.py --ratings "1:5,50:5,100:2"   # đề xuất cho hồ sơ movie_id:rating (không dùng ID trong train như user)
-.venv/Scripts/python scripts/demo_recommend.py --ml-user 1                  # hồ sơ = rating train của user MovieLens 1
-.venv/Scripts/python scripts/demo_recommend.py --check                      # độ trễ và kiểm tra fold-in trên mọi user train
-```
+Interactive docs at `/docs` (Swagger). Sign in with `POST /api/v1/auth/login` (`{"username","password"}`) and send `Authorization: Bearer <token>`. Errors always look like `{"detail": "...", "code": "..."}`.
 
-**Backend API (giai đoạn 5, đã kiểm chứng):**
-
-```bash
-.venv/Scripts/python scripts/seed_db.py     # nạp phim + hồ sơ MovieLens (rating train) + 3 tài khoản mẫu (admin / datasci / demo)
-.venv/Scripts/python -m uvicorn backend.app.main:app --port 8000    # Swagger: http://localhost:8000/docs
-.venv/Scripts/python -m pytest              # gồm test API (DB tạm, không đụng knn.db)
-```
-
-`seed_db.py` tự sinh mật khẩu mẫu và JWT secret vào `.env` (đã bị `.gitignore`, không in ra màn hình) — mở `.env` để xem mật khẩu của `KNN_SEED_*`. Đăng nhập: `POST /api/v1/auth/login` với JSON `{"username","password"}`, dùng token ở header `Authorization: Bearer …`. Vai trò: `user` (phim, đánh giá, đề xuất), `admin` (`/admin/*`), `data_scientist` (`/ds/*`); quyền được kiểm tra phía server. Khởi động server nạp mô hình `is_active` trong DB (hoặc `artifacts/models/active.json`); nếu chưa có mô hình, `/recommendations` trả 503.
-
-**Giao diện web (giai đoạn 6, đã kiểm chứng trên trình duyệt):** chạy backend như trên rồi
-
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173 (Vite proxy /api → :8000)
-```
-
-Đăng ký tài khoản mới để vào luồng người dùng (onboarding → danh mục → đề xuất → "Vì sao?" → lịch sử), hoặc đăng nhập `admin` / `datasci` (mật khẩu trong `.env`) để xem trang Quản trị và Data Scientist (dữ liệu, huấn luyện, phiên bản, đánh giá). Menu và route đổi theo vai trò; truy cập sai vai trò chuyển sang trang 403.
-
-Người dùng web không có trong train nên mỗi lần đề xuất dựng lại hồ sơ truy vấn (`ml/models/foldin.py`): ước lượng bias hồ sơ, tính similarity với cộng đồng train, dự đoán KNN, loại phim đã chấm, lọc phim ít rating (`serving.min_item_ratings`). Hồ sơ rỗng → danh sách phổ biến. Backend (giai đoạn 5) sẽ gọi đúng các hàm này.
-
-## 8. Đánh giá
-
-| Mục tiêu | Chỉ số |
+| Area | Endpoints |
 |---|---|
-| Điểm dự đoán gần điểm thật | MAE, RMSE |
-| Danh sách phim hữu ích | Precision@10, Recall@10, NDCG@10 |
-| Mức phục vụ | Coverage và tỷ lệ fallback |
-| Hoạt động ứng dụng | Độ trễ, dữ liệu lưu đúng, kiểm tra đầu vào |
+| Auth | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` |
+| Films | `GET /movies`, `GET /movies/{id}`, `GET /movies/{id}/prediction`, `GET /movies/popular`, `GET /genres` |
+| Ratings | `GET /ratings/me`, `PUT /ratings/{movie_id}` (upsert), `DELETE /ratings/{movie_id}` |
+| Recommendations | `GET /recommendations?n=&genre=`, `GET /recommendations/{movie_id}/explain` |
+| Admin (`admin`) | `GET /admin/status`, `GET/PATCH /admin/users`, `GET/PATCH /admin/movies`, `GET /admin/recommendations/movielens/{id}` |
+| Data scientist (`data_scientist`) | `GET /ds/data/report`, `GET /ds/data/split`, `POST/GET /ds/training-jobs`, `GET /ds/models`, `POST /ds/models/{id}/activate`, `GET /ds/evaluation/{comparison,tuning,errors}` |
 
-Định nghĩa phim liên quan là phim người dùng chấm từ 4 sao trong tập được giữ lại. Mọi mô hình dùng chung split và tập ứng viên. Không đặt trước mức “accuracy 90%”; chưa có kết quả nào được đo.
+## Configuration
 
-## 9. Kế hoạch và bàn giao
+Copy `.env.example` to `.env` (done automatically by `seed_db.py`). All variables are optional and use the `KNN_` prefix.
 
-| Tuần | Kết quả chính |
+| Variable | Meaning | Default |
+|---|---|---|
+| `KNN_DATABASE_URL` | SQLAlchemy URL | `sqlite:///<repo>/knn.db` |
+| `KNN_JWT_SECRET` | Token signing secret (generated by `seed_db.py`) | placeholder |
+| `KNN_JWT_EXPIRE_MINUTES` | Token lifetime | `120` |
+| `KNN_CORS_ORIGINS` | Allowed browser origins (JSON list) | `["http://localhost:5173"]` |
+| `KNN_ARTIFACTS_DIR` | Where model versions are stored | `artifacts/models` |
+| `KNN_SEED_*` | Usernames and passwords of the demo accounts | `admin` / `datasci` / `demo` |
+
+**Before exposing this anywhere other than your own machine:** put it behind HTTPS, set a strong `KNN_JWT_SECRET`, change or remove the demo accounts, and add login rate limiting (not implemented). The "profile" model is pseudonymous: only a username and password are stored.
+
+## Project layout
+
+| Path | Contents |
 |---|---|
-| 1 | Phạm vi, yêu cầu và kiểm tra dataset |
-| 2 | Use case, kiến trúc và luồng dữ liệu |
-| 3 | Preprocessing, splitting và mô hình đối chứng |
-| 4 | Học bias, KNNBaseline và validation |
-| 5 | MVP tích hợp |
-| 6 | Test cuối, phân tích lỗi và kiểm thử |
-| 7 | Báo cáo, README và hoàn thiện |
-| 8 | Slide, diễn tập và đóng gói |
+| `ml/` | Algorithm and pipeline, independent of the web layer: `data/` (download, validate, split), `models/` (ALS, similarity, KNN, fold-in, artifacts), `eval/` (metrics, tuning, error analysis) |
+| `backend/app/` | FastAPI app: auth and roles, routers, recommendation service, model registry, background training |
+| `frontend/src/` | React + TypeScript + Tailwind UI, one set of pages per role |
+| `scripts/` | `prepare_data`, `tune`, `evaluate`, `train`, `seed_db`, `benchmark`, `screenshots`, `demo_recommend` |
+| `configs/` | Data, model and tuning configuration |
+| `tests/`, `backend/tests/` | Algorithm, fold-in and API tests |
+| `docs/` | Screenshots, latency benchmark, contribution table, AI disclosure |
+| `artifacts/`, `data/` | Generated at run time (models, reports, split data); not in git |
 
-Nếu có 7 tuần, gộp hai tuần cuối. Bộ nộp gồm source code, README chạy được, hướng dẫn dữ liệu, báo cáo PDF, slide/demo, bảng đóng góp và khai báo sử dụng Generative AI.
+## Testing and measurement
 
-## 10. Tài liệu tham khảo
+```bash
+python -m pytest                      # 112 tests: hand-computed algorithm checks, leakage, fold-in, API (temporary DB)
+python scripts/benchmark.py           # with the backend running: end-to-end latency, writes docs/benchmark.md
+node scripts/screenshots.mjs          # UI screenshots (needs backend, frontend, Chrome or Edge)
+python scripts/demo_recommend.py --ratings "1:5,50:5,100:2"   # recommendations from the command line
+```
 
-- Rubric được cung cấp: `HK261_IS_Assignment_Rubric.pdf`.
-- [Surprise — cấu hình học bias bằng ALS/SGD](https://surprise.readthedocs.io/en/stable/prediction_algorithms.html)
-- [Surprise — các biến thể KNN](https://surprise.readthedocs.io/en/stable/knn_inspired.html)
-- [Surprise — similarity và shrinkage](https://surprise.readthedocs.io/en/stable/similarities.html)
-- [GroupLens — MovieLens 100K](https://grouplens.org/datasets/movielens/100k/)
+Measured Top-10 latency (300 profiles, real HTTP, same machine): **p50 50 ms, p95 70 ms**, against a 2-second target. Machine details are in [`docs/benchmark.md`](docs/benchmark.md).
 
-**Generative AI:** tài liệu đặc tả này được soạn với sự hỗ trợ của ChatGPT. Khi nộp, nhóm cần cập nhật phạm vi sử dụng AI thực tế và cách kiểm chứng mã nguồn/kết quả; không coi bản thiết kế là bằng chứng đã triển khai.
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `503 model_not_loaded` or an empty *For you* page | No model is active. Run `python scripts/train.py --activate` and restart the backend, or activate a version on the *Model versions* page. |
+| *Report not available yet* on the Evaluation page | Run `python scripts/tune.py` and `python scripts/evaluate.py` once. |
+| Every request takes about 2 seconds | Use `127.0.0.1` instead of `localhost` for the backend URL. On Windows, clients try IPv6 first and wait about 2 s before falling back. |
+| SSL error while downloading the dataset (Windows) | `pip install -r backend/requirements.txt` includes `truststore`, which makes Python use the Windows certificate store. Re-run the command. |
+| I forgot the demo passwords | Open `.env` (keys `KNN_SEED_*_PASSWORD`). |
+| Start over with a clean database | `python scripts/seed_db.py --reset` (deletes all web accounts and ratings). |
+| `evaluate.py` refuses to run | The test split was already evaluated for this configuration. Use `--force` only if you accept re-running it. |
+
+## Data, licensing and limitations
+
+- **Data:** MovieLens 100K, from GroupLens Research. It is **not** redistributed in this repository: `prepare_data.py` downloads it and checks its SHA-256. Read the [dataset terms](https://files.grouplens.org/datasets/movielens/ml-100k-README.txt) before use. Please cite: F. Maxwell Harper and Joseph A. Konstan, *The MovieLens Datasets: History and Context*, ACM TiiS 5(4), 2015.
+- **Code:** MIT, see [`LICENSE`](LICENSE).
+- **Limits:** the data is from 1997-98 and the catalog is old; a random per-user split measures how well hidden tastes are recovered, not future behaviour; an unrated film is not necessarily disliked; a predicted rating is not the probability that someone will like a film; and a web user's own ratings are used for their recommendations but are not added to the training data until a new model version is trained.
+- **AI use:** see [`docs/ai_disclosure.md`](docs/ai_disclosure.md).

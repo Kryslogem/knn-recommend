@@ -41,7 +41,7 @@ class Bundle:
 def _json_default(o):
     if isinstance(o, (np.floating, np.integer)):
         return o.item()
-    raise TypeError(f"Không serialize được {type(o)}")
+    raise TypeError(f"Cannot serialize {type(o)}")
 
 
 def save_artifact(out_dir: str | Path, knn: KNNModel, popular: PopularModel, meta: dict, metrics: dict) -> Path:
@@ -71,7 +71,7 @@ def load_artifact(path: str | Path) -> Bundle:
     path = Path(path)
     meta = json.loads((path / "meta.json").read_text(encoding="utf-8"))
     if meta.get("artifact_format") != ARTIFACT_FORMAT:
-        raise ValueError(f"Định dạng artifact không hỗ trợ: {meta.get('artifact_format')}")
+        raise ValueError(f"Unsupported artifact format: {meta.get('artifact_format')}")
     metrics = json.loads((path / "metrics.json").read_text(encoding="utf-8"))
     with np.load(path / "model.npz") as z:
         d = {k: z[k] for k in z.files}

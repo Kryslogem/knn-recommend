@@ -13,7 +13,7 @@ import { OnboardingPage } from './pages/OnboardingPage'
 import { RecommendationsPage } from './pages/RecommendationsPage'
 import { Spinner } from './components/ui'
 
-// Các trang Data Scientist kéo theo thư viện biểu đồ nặng → tải theo yêu cầu.
+// Data scientist pages pull in the heavy chart library, so load them on demand.
 const DsOverview = lazy(() => import('./pages/DsData').then((m) => ({ default: m.DsOverview })))
 const DsEvaluation = lazy(() => import('./pages/DsEvaluation').then((m) => ({ default: m.DsEvaluation })))
 const DsModels = lazy(() => import('./pages/DsModels').then((m) => ({ default: m.DsModels })))
@@ -22,17 +22,17 @@ const DsTrain = lazy(() => import('./pages/DsTrain').then((m) => ({ default: m.D
 function Message({ title, text }: { title: string; text: string }) {
   const { user } = useAuth()
   return (
-    <div className="py-16 text-center">
-      <h1 className="text-3xl font-bold text-slate-800">{title}</h1>
-      <p className="mt-2 text-slate-500">{text}</p>
-      <Link to={user ? HOME_BY_ROLE[user.role] : '/login'} className="mt-4 inline-block text-indigo-700 underline">
-        Về trang chính
+    <div className="py-16">
+      <h1 className="display text-[clamp(5rem,18vw,14rem)]">{title}</h1>
+      <p className="mt-4 max-w-xl border-l-4 border-alert pl-4">{text}</p>
+      <Link to={user ? HOME_BY_ROLE[user.role] : '/login'} className="btn mt-6">
+        Back to start
       </Link>
     </div>
   )
 }
 
-/** Trang chủ "/" chỉ dành cho người dùng thường; admin và Data Scientist chuyển về trang của vai trò mình. */
+/** "/" is for regular users only; admins and data scientists are sent to their own home. */
 function Home() {
   const { user } = useAuth()
   if (user && user.role !== 'user') return <Navigate to={HOME_BY_ROLE[user.role]} replace />
@@ -49,7 +49,7 @@ export default function App() {
       <Route element={<RoleRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/forbidden" element={<Message title="403" text="Bạn không có quyền truy cập trang này." />} />
+          <Route path="/forbidden" element={<Message title="403" text="You do not have permission to open this page." />} />
           <Route path="/movies" element={<MoviesPage />} />
           <Route path="/movies/:id" element={<MovieDetailPage />} />
 
@@ -72,7 +72,7 @@ export default function App() {
             <Route path="/ds/evaluation" element={<DsEvaluation />} />
           </Route>
 
-          <Route path="*" element={<Message title="404" text="Không tìm thấy trang." />} />
+          <Route path="*" element={<Message title="404" text="Page not found." />} />
         </Route>
       </Route>
     </Routes>

@@ -24,16 +24,16 @@ def _token(request: Request, db: Session, u: User) -> dict:
 
 @router.post("/register", status_code=201)
 def register(body: Credentials, request: Request, db: Session = Depends(get_db)):
-    """Tạo tài khoản vai trò `user`. Chỉ thu username (tên giả danh) + mật khẩu."""
+    """Create a `user` account. Only a pseudonymous username and a password are collected."""
     if db.scalar(select(User.id).where(User.username == body.username)):
-        raise AppError(409, "username_taken", "Tên đăng nhập đã tồn tại")
+        raise AppError(409, "username_taken", "Username is already taken")
     u = User(username=body.username, password_hash=hash_password(body.password), role="user", kind="app")
     db.add(u)
     try:
         db.commit()
-    except IntegrityError:  # hai yêu cầu đăng ký cùng lúc
+    except IntegrityError:  # two registrations at the same moment
         db.rollback()
-        raise AppError(409, "username_taken", "Tên đăng nhập đã tồn tại") from None
+        raise AppError(409, "username_taken", "Username is already taken") from None
     return _token(request, db, u)
 
 
@@ -42,9 +42,9 @@ def login(body: Credentials, request: Request, db: Session = Depends(get_db)):
     u = db.scalar(select(User).where(User.username == body.username))
     ok = verify_password(body.password, u.password_hash if u else None)
     if not ok or u is None:
-        raise AppError(401, "bad_credentials", "Sai tên đăng nhập hoặc mật khẩu")
+        raise AppError(401, "bad_credentials", "Wrong username or password")
     if not u.is_active:
-        raise AppError(403, "account_disabled", "Tài khoản đã bị khóa")
+        raise AppError(403, "account_disabled", "This account is locked")
     return _token(request, db, u)
 
 

@@ -1,4 +1,4 @@
-"""Lỗi thống nhất: {"detail": "...", "code": "..."} cho 400/401/403/404/409/422/503."""
+"""Uniform errors: {"detail": "...", "code": "..."} for 400/401/403/404/409/422/503."""
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -17,7 +17,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(HTTPException)
     async def _http(_: Request, e: HTTPException):
-        detail = e.detail if isinstance(e.detail, str) else "Yêu cầu không hợp lệ"
+        detail = e.detail if isinstance(e.detail, str) else "Invalid request"
         return JSONResponse({"detail": detail, "code": f"http_{e.status_code}"}, status_code=e.status_code, headers=e.headers)
 
     @app.exception_handler(RequestValidationError)
@@ -28,6 +28,6 @@ def register_error_handlers(app: FastAPI) -> None:
         ]
         first = errors[0] if errors else {"field": "", "message": ""}
         return JSONResponse(
-            {"detail": f"Dữ liệu không hợp lệ ({first['field']}): {first['message']}", "code": "validation_error", "errors": errors},
+            {"detail": f"Invalid input ({first['field']}): {first['message']}", "code": "validation_error", "errors": errors},
             status_code=422,
         )

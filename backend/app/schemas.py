@@ -17,7 +17,7 @@ class Credentials(BaseModel):
     def _norm(cls, v: str) -> str:
         v = v.strip().lower()  # tên đăng nhập không phân biệt hoa thường
         if not USERNAME_RE.match(v):
-            raise ValueError("chỉ gồm chữ thường, số, '_', '.', '-' (3–32 ký tự)")
+            raise ValueError("use only lowercase letters, digits, '_', '.' or '-' (3-32 characters)")
         return v
 
 

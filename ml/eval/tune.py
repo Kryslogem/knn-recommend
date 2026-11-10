@@ -82,7 +82,7 @@ def choose_item_threshold(
         m = ranking_block(tops, relevant, len(catalog_ids), k)
         n_ok = int(allowed_mask(catalog_ids, counts, t).sum())
         rows.append({"min_item_ratings": t, "n_candidate_items": n_ok, **{f"val_{a}": b for a, b in m.items()}})
-        log(f"  ngưỡng {t:>3}: {n_ok:>4} phim hợp lệ, NDCG@10={m[f'ndcg@{k}']:.4f}, Recall@10={m[f'recall@{k}']:.4f}")
+        log(f"  threshold {t:>3}: {n_ok:>4} eligible films, NDCG@10={m[f'ndcg@{k}']:.4f}, Recall@10={m[f'recall@{k}']:.4f}")
     table = pd.DataFrame(rows)
     table["share_of_catalog"] = table["n_candidate_items"] / len(catalog_ids)
     # NDCG tăng đơn điệu theo ngưỡng nên chọn thuần NDCG sẽ thu danh sách về vài trăm phim phổ biến nhất;

@@ -29,11 +29,11 @@ from ml.models.knn import KNNModel  # noqa: E402
 from ml.models.popular import PopularModel  # noqa: E402
 
 MODEL_LABELS = {
-    "popular": "1. Phim phổ biến",
+    "popular": "1. Popular films",
     "bias_only": "2. Bias-only",
-    "knn_basic": "3. KNNBasic (Pearson thường)",
-    "knn_baseline_no_shrinkage": "4. KNNBaseline, shrinkage=0",
-    "knn_baseline": "5. KNNBaseline đầy đủ",
+    "knn_basic": "3. KNNBasic (plain Pearson)",
+    "knn_baseline_no_shrinkage": "4. KNNBaseline, no shrinkage",
+    "knn_baseline": "5. KNNBaseline (full)",
 }
 METRIC_COLS = ["rmse", "mae", "rmse_knn_supported", "precision@10", "recall@10", "ndcg@10",
                "prediction_coverage_knn", "fallback_rate", "catalog_coverage", "n_eligible_users", "n_pairs"]
@@ -52,9 +52,23 @@ def build_models(cfg: dict) -> dict:
     }
 
 
+def write_error_figure(errors: dict, reports) -> None:
+    fig, ax = plt.subplots(1, 3, figsize=(16, 4))
+    for a, key, title in zip(ax, ["by_user_activity", "by_item_popularity", "by_true_rating"],
+                             ["RMSE by user activity", "RMSE by film popularity", "RMSE by true rating"]):
+        g = pd.DataFrame(errors[key]).set_index("group")
+        g[["rmse_knn_baseline", "rmse_bias_only"]].plot.bar(ax=a, rot=15, color=["#111111", "#8a8a84"])
+        a.set_title(title + " (test)")
+        a.set_xlabel("")
+    fig.tight_layout()
+    fig.savefig(reports / "figs" / "error_analysis.png", dpi=150)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--force", action="store_true", help="cho phép chạy lại test với cùng cấu hình")
+    ap.add_argument("--force", action="store_true", help="allow re-running the test set for the same configuration")
+    ap.add_argument("--errors-only", action="store_true",
+                    help="regenerate only error_analysis.json and its figure (no ranking metrics, comparison files untouched)")
     args = ap.parse_args()
 
     cfg_path = ROOT / "configs/model.yaml"
@@ -66,13 +80,26 @@ def main() -> int:
 
     manifest = json.load(open(processed / "split_manifest.json", encoding="utf-8"))
     if cfg.get("split_hash") != manifest["split_hash"]:
-        print("model.yaml được chốt trên split khác với split hiện tại — chạy lại scripts/tune.py.", file=sys.stderr)
+        print("model.yaml was chosen on a different split than the current one. Re-run scripts/tune.py.", file=sys.stderr)
         return 1
+    if args.errors_only:
+        train, test = (pd.read_csv(processed / f"{n}.csv") for n in ("train", "test"))
+        movies = pd.read_csv(processed / "movies.csv")
+        models = build_models(cfg)
+        preds = {}
+        for name in ("knn_baseline", "bias_only"):
+            models[name].fit(train)
+            preds[name] = test.join(models[name].predict_frame(test))
+        errors = analyze(preds, "knn_baseline", train, movies)
+        json.dump(errors, open(reports / "error_analysis.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+        write_error_figure(errors, reports)
+        print("Done: error_analysis.json and figs/error_analysis.png regenerated (predictions are deterministic).")
+        return 0
     config_hash = hashlib.sha256(cfg_path.read_bytes()).hexdigest()[:16]
     out_json = reports / "comparison.json"
     if out_json.exists() and not args.force:
         if json.load(open(out_json, encoding="utf-8")).get("config_hash") == config_hash:
-            print("Test đã được đánh giá cho cấu hình này (config_hash trùng). Dùng --force để chạy lại.", file=sys.stderr)
+            print("The test set was already evaluated for this configuration (same config_hash). Use --force to re-run.", file=sys.stderr)
             return 1
 
     train, val, test = (pd.read_csv(processed / f"{n}.csv") for n in ("train", "validation", "test"))
@@ -89,8 +116,8 @@ def main() -> int:
             rows.append({"model": name, "label": MODEL_LABELS[name], "split": split, "min_item_ratings": thr, **m})
             if split == "test":
                 test_preds[name] = preds
-            print(f"   {split:<10} RMSE={m['rmse']:.4f} MAE={m['mae']:.4f} | không lọc: R@10={m['recall@10']:.4f} "
-                  f"NDCG@10={m['ndcg@10']:.4f} | lọc ≥{thr}: R@10={m[f'recall@10_min{thr}']:.4f} "
+            print(f"   {split:<10} RMSE={m['rmse']:.4f} MAE={m['mae']:.4f} | unfiltered: R@10={m['recall@10']:.4f} "
+                  f"NDCG@10={m['ndcg@10']:.4f} | filtered >={thr}: R@10={m[f'recall@10_min{thr}']:.4f} "
                   f"NDCG@10={m[f'ndcg@10_min{thr}']:.4f} cov={m[f'catalog_coverage_min{thr}']:.3f} | knn={m['prediction_coverage_knn']:.3f}")
 
     table = pd.DataFrame(rows)
@@ -106,20 +133,14 @@ def main() -> int:
     t = table[table["split"] == "test"].set_index("model").loc[list(MODEL_LABELS)]
     fig, ax = plt.subplots(1, 3, figsize=(16, 4))
     for a, col in zip(ax, ["rmse", f"ndcg@10_min{thr}", f"recall@10_min{thr}"]):
-        a.barh([MODEL_LABELS[m] for m in t.index], t[col], color="#4f46e5")
+        a.barh([MODEL_LABELS[m] for m in t.index], t[col], color="#111111")
         a.invert_yaxis(); a.set_title(f"{col} (test)")
         for y, v in enumerate(t[col]):
             a.text(v, y, f" {v:.4f}", va="center", fontsize=8)
     fig.tight_layout(); fig.savefig(reports / "figs" / "comparison.png", dpi=150)
 
-    fig, ax = plt.subplots(1, 3, figsize=(16, 4))
-    for a, key, title in zip(ax, ["by_user_activity", "by_item_popularity", "by_true_rating"],
-                             ["RMSE theo mức hoạt động của user", "RMSE theo độ phổ biến phim", "RMSE theo rating thật"]):
-        g = pd.DataFrame(errors[key]).set_index("group")
-        g[["rmse_knn_baseline", "rmse_bias_only"]].plot.bar(ax=a, rot=15)
-        a.set_title(title + " (test)"); a.set_xlabel("")
-    fig.tight_layout(); fig.savefig(reports / "figs" / "error_analysis.png", dpi=150)
-    print("Xong: comparison.csv/json, error_analysis.json, figs/comparison.png, figs/error_analysis.png")
+    write_error_figure(errors, reports)
+    print("Done: comparison.csv/json, error_analysis.json, figs/comparison.png, figs/error_analysis.png")
     return 0
 
 

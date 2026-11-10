@@ -1,1 +1,219 @@
 @import "tailwindcss";
+@import "@fontsource/archivo-black/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+@import "@fontsource/jetbrains-mono/latin-700.css";
+
+/*
+  Industrial Brutalism — Swiss Industrial Print (light substrate).
+  Rules: matte paper + carbon ink, ONE accent (hazard red), 0 border-radius, no shadows,
+  no soft gradients, visible 1–2px structure, heavy display type vs. small uppercase mono.
+*/
+@theme {
+  --font-display: "Archivo Black", "Arial Black", Impact, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --color-paper: #f4f4f0;
+  --color-paper-2: #eae8e3;
+  --color-ink: #111111;
+  --color-alert: #e61919;
+}
+
+*, *::before, *::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html { background: var(--color-paper); }
+body {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--color-alert); color: #fff; }
+:focus-visible { outline: 3px solid var(--color-alert); outline-offset: 2px; }
+
+/* Global mechanical grain: unified physical texture over the whole DOM. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+@layer components {
+  /* ---- Typography ---- */
+  .display {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    font-weight: 400;
+  }
+  .macro { font-size: clamp(2.5rem, 7.2vw, 6.25rem); }
+  .h-sec {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    font-size: 1.5rem;
+    font-weight: 400;
+  }
+  .micro {
+    font-size: 10.5px;
+    line-height: 1.3;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---- Structure ---- */
+  .panel { position: relative; border: 2px solid var(--color-ink); background: var(--color-paper); }
+  .panel-head {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    padding: 0.35rem 0.75rem;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  /* 1px grid lines from a contrasting parent background (no border declarations needed). */
+  .ruled { display: grid; gap: 1px; background: var(--color-ink); border: 2px solid var(--color-ink); }
+  .ruled > * { background: var(--color-paper); min-width: 0; }
+  .rule { border: 0; border-top: 2px solid var(--color-ink); margin: 0; }
+  .hazard {
+    height: 12px;
+    background: repeating-linear-gradient(-45deg, var(--color-ink) 0 10px, var(--color-paper) 10px 20px);
+    border-block: 2px solid var(--color-ink);
+  }
+  .barcode {
+    height: 28px;
+    background: repeating-linear-gradient(90deg, var(--color-ink) 0 2px, transparent 2px 5px, var(--color-ink) 5px 6px, transparent 6px 10px, var(--color-ink) 10px 13px, transparent 13px 16px);
+  }
+
+  /* ---- Controls ---- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 2px solid var(--color-ink);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    padding: 0.4rem 0.85rem;
+    font: 700 11.5px/1.1 var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--color-ink); color: var(--color-paper); }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgba(17, 17, 17, 0.18) 5px 6px);
+  }
+  .btn-solid { background: var(--color-ink); color: var(--color-paper); }
+  .btn-solid:hover:not(:disabled) { background: var(--color-alert); border-color: var(--color-ink); color: #fff; }
+  .btn-alert { background: var(--color-alert); color: #fff; }
+  .btn-alert:hover:not(:disabled) { background: var(--color-ink); }
+  .btn-sm { padding: 0.25rem 0.55rem; font-size: 10.5px; }
+
+  .field {
+    width: 100%;
+    border: 2px solid var(--color-ink);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    padding: 0.45rem 0.6rem;
+    font: 500 13px/1.3 var(--font-mono);
+  }
+  .field::placeholder { color: rgba(17, 17, 17, 0.45); }
+  .field:focus { outline: 3px solid var(--color-alert); outline-offset: 0; }
+  .field[aria-invalid="true"] { border-color: var(--color-alert); }
+  select.field { cursor: pointer; }
+
+  .tag {
+    display: inline-block;
+    border: 2px solid var(--color-ink);
+    padding: 0 0.4rem;
+    font-size: 10px;
+    line-height: 1.5;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .tag-solid { background: var(--color-ink); color: var(--color-paper); }
+  .tag-alert { background: var(--color-alert); border-color: var(--color-alert); color: #fff; }
+
+  /* ---- Tables ---- */
+  .table { width: 100%; border-collapse: collapse; text-align: left; }
+  .table th {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 2px solid var(--color-ink);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .table td { padding: 0.5rem 0.6rem; border-top: 1px solid var(--color-ink); vertical-align: top; }
+  .table tbody tr:hover { background: var(--color-paper-2); }
+
+  /* ---- Rating input: five numbered cells, filled up to the chosen value ---- */
+  .rate { display: inline-flex; }
+  .rate-cell {
+    width: 2.1rem;
+    height: 2.1rem;
+    margin-left: -2px;
+    border: 2px solid var(--color-ink);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font: 700 13px/1 var(--font-mono);
+    cursor: pointer;
+  }
+  .rate-cell:first-child { margin-left: 0; }
+  .rate-cell[data-on="true"] { background: var(--color-ink); color: var(--color-paper); }
+  .rate-cell:disabled { cursor: not-allowed; opacity: 0.5; }
+  .rate-sm .rate-cell { width: 1.8rem; height: 1.8rem; font-size: 12px; }
+
+  /* ---- Loading ---- */
+  .loading-bar {
+    height: 12px;
+    border: 2px solid var(--color-ink);
+    background: repeating-linear-gradient(-45deg, var(--color-ink) 0 8px, var(--color-paper) 8px 16px);
+    background-size: 22.63px 100%;
+    animation: slide 0.6s linear infinite;
+  }
+  @keyframes slide { to { background-position: 22.63px 0; } }
+  .skeleton {
+    background: repeating-linear-gradient(135deg, var(--color-paper-2) 0 8px, var(--color-paper) 8px 16px);
+    border: 2px solid var(--color-ink);
+  }
+  @media (prefers-reduced-motion: reduce) { .loading-bar { animation: none; } }
+}
+
+/* Charts: monospace, ink-only, no rounded tooltips. */
+.recharts-text, .recharts-legend-item-text, .recharts-cartesian-axis-tick-value {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  fill: var(--color-ink);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  border: 2px solid var(--color-ink) !important;
+  background: var(--color-paper) !important;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}

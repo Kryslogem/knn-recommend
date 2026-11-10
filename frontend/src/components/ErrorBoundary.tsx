@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
-/** Bắt lỗi render không lường trước để không hiện trang trắng. */
+/** Catches unexpected render errors so the user never sees a blank page. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
 
@@ -15,12 +15,16 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   render() {
     if (!this.state.error) return this.props.children
     return (
-      <div role="alert" className="mx-auto max-w-lg p-10 text-center">
-        <h1 className="text-xl font-bold text-red-700">Có lỗi không mong muốn</h1>
-        <p className="mt-2 text-sm text-slate-600">{this.state.error.message}</p>
-        <button className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm text-white" onClick={() => window.location.assign('/')}>
-          Tải lại ứng dụng
-        </button>
+      <div role="alert" className="mx-auto mt-16 max-w-lg border-2 border-alert">
+        <div className="bg-alert px-3 py-1 text-white" style={{ fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700 }}>
+          /// Unexpected error
+        </div>
+        <div className="p-4">
+          <p className="font-bold">{this.state.error.message}</p>
+          <button className="btn mt-4" onClick={() => window.location.assign('/')}>
+            Reload application
+          </button>
+        </div>
       </div>
     )
   }

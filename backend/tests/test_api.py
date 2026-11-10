@@ -354,7 +354,7 @@ def test_training_job_succeeds_and_registers_version(env, ds_h, prepared):
     job = c.get(f"{API}/ds/training-jobs/{jid}", headers=ds_h).json()
     assert job["status"] == "succeeded", job["log"]
     assert job["config"]["knn"]["k"] == 5 and job["config"]["serving"]["min_item_ratings"] == 2
-    assert "Hoàn tất" in job["log"] and job["model_version_id"]
+    assert "Finished" in job["log"] and job["model_version_id"]
     m = c.get(f"{API}/ds/models/{job['model_version_id']}", headers=ds_h).json()
     assert m["is_active"] is False and m["metrics_test"] is None  # job web không gắn metrics test
     assert m["metrics_val"]["rmse"] > 0 and m["includes_app_ratings"] is False
@@ -378,7 +378,7 @@ def test_training_job_failure_is_recorded_and_blocks_while_running(env, ds_h, pr
     jid = c.post(f"{API}/ds/training-jobs", json={}, headers=ds_h).json()["id"]
     app.state.trainer.wait(60)
     job = c.get(f"{API}/ds/training-jobs/{jid}", headers=ds_h).json()
-    assert job["status"] == "failed" and "LỖI" in job["log"] and job["finished_at"]
+    assert job["status"] == "failed" and "ERROR" in job["log"] and job["finished_at"]
     assert c.get(f"{API}/ds/training-jobs/9999", headers=ds_h).status_code == 404
 
 
