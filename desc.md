@@ -390,9 +390,7 @@ Nếu có 7 tuần, gộp hai tuần cuối và viết báo cáo từ tuần 2.
 | Data & ML workflow | 15 | Nguồn dữ liệu thực, preprocessing, split, chống leakage |
 | Algorithm & evaluation | 25 | Học bias, KNN, cài đặt, metrics, baseline, phân tích lỗi |
 | System & integration | 25 | MVP, tích hợp thật, kiểm thử và xử lý đầu vào |
-| Demo & report | 10 | Demo/Q&A, PDF, đóng góp và khai báo AI |
-
-Bộ bàn giao: source code; README với lệnh chạy đã kiểm chứng và hướng dẫn dữ liệu; báo cáo PDF; slide và live demo; bảng đóng góp; khai báo sử dụng Generative AI. Hai tài liệu Markdown hiện tại là nền thiết kế, chưa thay thế các sản phẩm triển khai.
+| Demo & report | 10 | Demo/Q&A, PDF, đóng góp |
 
 ## 19. Nguồn tham khảo
 
