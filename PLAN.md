@@ -500,7 +500,7 @@ Người dùng web không có trong train, nên **không thể** chỉ gọi `pr
 3. Residual hồ sơ: `e_qi = r_i − μ − b_q − b_i`.
 4. Tính `s_qv` với mọi user train `v` theo công thức 8.2, chỉ trên các cột thuộc `P` (một phép nhân ma trận 943 × |P|).
 5. Với mọi phim ứng viên, dự đoán theo 8.3 (vector hóa: ma trận `S∘M` kích thước 943 × 1682, lấy top-K theo cột bằng `argpartition`).
-6. Loại phim đã chấm + phim bị ẩn, áp bộ lọc thể loại, sắp giảm dần theo điểm, lấy Top-N.
+6. Loại phim đã chấm + phim bị ẩn, áp bộ lọc thể loại, **chỉ giữ phim có ≥ `serving.min_item_ratings` rating trong train** (ngưỡng chọn ở giai đoạn 3, hiện = 50; không có ngưỡng thì Top-N thiên về phim hiếm — xem `artifacts/reports/threshold_tuning.csv`), sắp giảm dần theo điểm, lấy Top-N.
 7. Thứ tự phá hòa cố định (vd. theo số láng giềng, rồi theo `movie_id`) để kết quả tái lập.
 
 Quy tắc fallback:

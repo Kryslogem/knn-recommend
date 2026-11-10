@@ -61,18 +61,27 @@ class KNNModel:
         self.name = "knn_baseline" if mode == "baseline" else "knn_basic"
 
     def fit(self, train: pd.DataFrame) -> "KNNModel":
-        rm = self.rm = RatingMatrix.from_frame(train)
-        self.mu = float(rm.R[rm.M].mean())
+        rm = RatingMatrix.from_frame(train)
+        mu = float(rm.R[rm.M].mean())
+        bias = fit_als(rm, self.n_epochs, self.reg_u, self.reg_i) if self.mode == "baseline" else None
+        self.set_state(rm, mu, bias)
         if self.mode == "baseline":
-            self.bias = fit_als(rm, self.n_epochs, self.reg_u, self.reg_i)
-            self.base = self.bias.full()
-            self.V = (rm.R - self.base) * rm.M  # residual e_vi
             self.sim = pearson_baseline(self.V, rm.M, self.shrinkage, self.min_support)
         else:
-            self.bias = None
-            self.base = np.full(rm.shape, self.mu)
-            self.V = rm.R * rm.M
             self.sim = pearson(rm.R, rm.M, self.shrinkage, self.min_support)
+        return self
+
+    def set_state(self, rm: RatingMatrix, mu: float, bias, sim: np.ndarray | None = None) -> "KNNModel":
+        """Gán trạng thái đã học (dùng khi fit hoặc nạp từ artifact) và dẫn xuất điểm nền + residual."""
+        self.rm, self.mu, self.bias = rm, mu, bias
+        if self.mode == "baseline":
+            self.base = bias.full()
+            self.V = (rm.R - self.base) * rm.M  # residual e_vi
+        else:
+            self.base = np.full(rm.shape, mu)
+            self.V = rm.R * rm.M
+        if sim is not None:
+            self.sim = sim
         return self
 
     def _predict_user_items(self, uidx: int, item_idx: np.ndarray):
@@ -110,6 +119,28 @@ class KNNModel:
             source[positions[known]] = np.where(use_knn, "knn", "baseline")
             n_nb[positions[known]] = nn
         return pd.DataFrame({"est": est, "source": source, "n_neighbors": n_nb}, index=df.index)
+
+    def score_matrix(self, user_ids, catalog_ids) -> tuple[np.ndarray, np.ndarray]:
+        """Điểm dự đoán (users × catalog) và cờ "dùng KNN". Phim/người lạ dùng điểm nền."""
+        rm = self.rm
+        catalog_ids = np.asarray(catalog_ids)
+        known = np.array([int(m) in rm.item_index for m in catalog_ids])
+        iidx = np.array([rm.item_index[int(m)] for m in catalog_ids[known]], dtype=int)
+        bi = np.zeros(len(catalog_ids))
+        if self.bias is not None:
+            bi[known] = self.bias.b_i[iidx]
+        est = np.empty((len(user_ids), len(catalog_ids)))
+        used = np.zeros(est.shape, dtype=bool)
+        for r, uid in enumerate(user_ids):
+            uidx = rm.user_index.get(int(uid))
+            bu = self.bias.b_u[uidx] if (self.bias is not None and uidx is not None) else 0.0
+            row = np.full(len(catalog_ids), self.mu) if self.mode == "basic" else self.mu + bu + bi
+            est[r] = np.clip(row, 1.0, 5.0)
+            if uidx is not None and known.any():
+                e, use_knn, _ = self._predict_user_items(uidx, iidx)
+                est[r, known] = e
+                used[r, known] = use_knn
+        return est, used
 
     def predict(self, user_id: int, movie_id: int) -> dict:
         row = self.predict_frame(pd.DataFrame({"user_id": [user_id], "movie_id": [movie_id]})).iloc[0]

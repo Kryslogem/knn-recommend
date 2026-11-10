@@ -1,25 +1,31 @@
-# Siêu tham số mặc định của KNNBaseline.
-# Giá trị khởi điểm (theo mặc định Surprise); sẽ được thay bằng cấu hình
-# chọn trên validation ở giai đoạn 3. KHÔNG chọn bằng tập test.
+# Cấu hình KNNBaseline đã CHỐT bằng scripts/tune.py trên VALIDATION (không dùng test).
+# Sinh tự động — chạy lại tune.py để cập nhật; đừng sửa tay nếu muốn tái lập.
 algorithm: knn_baseline
 user_based: true
-
 baseline:
   method: als
   n_epochs: 10
-  reg_u: 15
-  reg_i: 10
-
+  reg_u: 5.0
+  reg_i: 5.0
 similarity:
   name: pearson_baseline
-  shrinkage: 100
+  shrinkage: 200.0
   min_support: 1
-
 knn:
   k: 40
-  min_k: 1
-
+  min_k: 3
+competitors:
+  knn_basic:
+    k: 60
+  knn_baseline_no_shrinkage:
+    k: 80
 serving:
   top_n: 10
   max_n: 50
-  popular_bayes_m: 20   # hệ số làm trơn cho danh sách phổ biến
+  popular_bayes_m: 20
+  min_item_ratings: 50
+selected_on: validation
+selection_rule: min RMSE (round 4); tie -> max NDCG@10 among top-3 by RMSE
+split_hash: 24f1564dab24feb4ad79614fcc19636a0d917224d5066cea1008aa5806f4a6a1
+threshold_selection_rule: max NDCG@10 on validation (KNNBaseline đã chốt) với ràng
+  buộc giữ >= 25% danh mục làm ứng viên; hòa → ngưỡng nhỏ hơn

@@ -68,6 +68,13 @@ class BiasOnlyModel:
         bi = p.b_i[self.rm.item_index[movie_id]] if movie_id in self.rm.item_index else 0.0
         return float(np.clip(p.mu + bu + bi, 1.0, 5.0))
 
+    def score_matrix(self, user_ids, catalog_ids) -> tuple[np.ndarray, np.ndarray]:
+        p, rm = self.params, self.rm
+        bi = np.array([p.b_i[rm.item_index[int(m)]] if int(m) in rm.item_index else 0.0 for m in catalog_ids])
+        bu = np.array([p.b_u[rm.user_index[int(u)]] if int(u) in rm.user_index else 0.0 for u in user_ids])
+        est = np.clip(p.mu + bu[:, None] + bi[None, :], 1.0, 5.0)
+        return est, np.zeros(est.shape, dtype=bool)
+
     def predict_frame(self, df: pd.DataFrame) -> pd.DataFrame:
         est = [self.predict(int(u), int(i)) for u, i in zip(df["user_id"], df["movie_id"])]
         return pd.DataFrame({"est": est, "source": "baseline", "n_neighbors": 0}, index=df.index)

@@ -14,15 +14,50 @@ from __future__ import annotations
 import numpy as np
 
 
-def _finish(rho: np.ndarray, n_common: np.ndarray, shrinkage: float, min_support: int) -> np.ndarray:
+def _shrink(rho: np.ndarray, n_common: np.ndarray, shrinkage: float, min_support: int) -> np.ndarray:
+    """Áp shrinkage và ngưỡng phim chung; dùng cho cả ma trận lẫn vector (hồ sơ ngoài train)."""
     denom = n_common - 1 + shrinkage
     with np.errstate(divide="ignore", invalid="ignore"):
         factor = np.where(denom > 0, (n_common - 1) / denom, 0.0)
-    sim = rho * factor
-    sim[n_common < max(min_support, 2)] = 0.0
-    sim = np.clip(sim, -1.0, 1.0)  # chặn sai số làm tròn
+    sim = np.where(n_common < max(min_support, 2), 0.0, rho * factor)
+    return np.clip(sim, -1.0, 1.0)  # chặn sai số làm tròn
+
+
+def _finish(rho: np.ndarray, n_common: np.ndarray, shrinkage: float, min_support: int) -> np.ndarray:
+    sim = _shrink(rho, n_common, shrinkage, min_support)
     np.fill_diagonal(sim, 0.0)
     return sim
+
+
+def profile_similarity_baseline(
+    E: np.ndarray, M: np.ndarray, e_q: np.ndarray, m_q: np.ndarray, shrinkage: float, min_support: int
+) -> np.ndarray:
+    """Similarity Pearson-baseline giữa MỘT hồ sơ truy vấn (residual e_q, mặt nạ m_q) và mọi user train.
+
+    Cùng công thức với `pearson_baseline` nhưng một hàng: dùng cho người dùng ngoài train (fold-in).
+    """
+    Mf, mq = M.astype(float), m_q.astype(float)
+    num = E @ e_q
+    n = Mf @ mq
+    den = np.sqrt(((E * E) @ mq) * (Mf @ (e_q * e_q)))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rho = np.where(den > 0, num / den, 0.0)
+    return _shrink(rho, n, shrinkage, min_support)
+
+
+def profile_similarity_pearson(
+    R: np.ndarray, M: np.ndarray, r_q: np.ndarray, m_q: np.ndarray, shrinkage: float, min_support: int
+) -> np.ndarray:
+    """Một hàng của `pearson` (KNNBasic) cho hồ sơ truy vấn."""
+    Mf, mq = M.astype(float), m_q.astype(float)
+    Rm, rq = R * M, r_q * m_q
+    n = Mf @ mq
+    S_v, S_q = Rm @ mq, Mf @ rq
+    with np.errstate(divide="ignore", invalid="ignore"):
+        num = Rm @ rq - S_v * S_q / n
+        den = np.sqrt(((Rm * Rm) @ mq - S_v**2 / n) * (Mf @ (rq * rq) - S_q**2 / n))
+        rho = np.where((n > 0) & (den > 1e-12), num / den, 0.0)
+    return _shrink(rho, n, shrinkage, min_support)
 
 
 def pearson_baseline(E: np.ndarray, M: np.ndarray, shrinkage: float = 100.0, min_support: int = 1) -> np.ndarray:

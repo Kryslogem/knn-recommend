@@ -28,6 +28,11 @@ class PopularModel:
         """Dự đoán điểm = điểm trơn của phim (mu nếu phim lạ)."""
         return float(np.clip(self.score.get(movie_id, self.mu), 1.0, 5.0))
 
+    def score_matrix(self, user_ids, catalog_ids) -> tuple[np.ndarray, np.ndarray]:
+        row = np.clip(np.array([self.score.get(int(m), self.mu) for m in catalog_ids]), 1.0, 5.0)
+        est = np.tile(row, (len(user_ids), 1))
+        return est, np.zeros(est.shape, dtype=bool)
+
     def predict_frame(self, df: pd.DataFrame) -> pd.DataFrame:
         est = df["movie_id"].map(self.score).fillna(self.mu).clip(1.0, 5.0)
         return pd.DataFrame({"est": est, "source": "popular", "n_neighbors": 0}, index=df.index)
@@ -35,7 +40,7 @@ class PopularModel:
     def top_n(self, n: int, exclude: set[int] | None = None) -> list[tuple[int, float]]:
         """Top-n phim theo điểm trơn; hòa → nhiều rating hơn, rồi movie_id nhỏ hơn."""
         exclude = exclude or set()
-        df = pd.DataFrame({"score": self.score, "count": self.count}).reset_index()
+        df = pd.DataFrame({"score": self.score, "count": self.count}).rename_axis("movie_id").reset_index()
         df = df[~df["movie_id"].isin(exclude)].sort_values(
             ["score", "count", "movie_id"], ascending=[False, False, True]
         )

@@ -116,7 +116,47 @@ npm run dev        # http://localhost:5173
 
 Kết quả: `data/processed/{train,validation,test}.csv`, `split_manifest.json`, `artifacts/reports/data_report.json`. Dữ liệu gốc không nằm trong repo; script tải trực tiếp từ GroupLens.
 
-Các bước huấn luyện và đánh giá sẽ được bổ sung khi triển khai giai đoạn 2–4.
+**Tuning và đánh giá (giai đoạn 3, đã kiểm chứng; tuning ~7 phút, đánh giá ~4 phút):**
+
+```bash
+.venv/Scripts/python scripts/tune.py        # grid search trên VALIDATION, ghi configs/model.yaml + artifacts/reports/tuning.csv
+.venv/Scripts/python scripts/tune.py --only-threshold   # (tùy chọn, ~40 giây) chỉ chọn lại ngưỡng min_item_ratings, giữ cấu hình KNN
+.venv/Scripts/python scripts/evaluate.py    # 5 mô hình trên validation + test (chỉ chạy test một lần cho mỗi cấu hình; --force để chạy lại)
+.venv/Scripts/python scripts/smoke_models.py  # kiểm tra nhanh RMSE trên validation
+```
+
+Kết quả: `artifacts/reports/{tuning.csv,comparison.csv,comparison.json,error_analysis.json}` và biểu đồ trong `artifacts/reports/figs/`. Các thư mục này không nằm trong repo; chạy lại script để tái tạo.
+
+**Huấn luyện và đề xuất (giai đoạn 4, đã kiểm chứng):**
+
+```bash
+.venv/Scripts/python scripts/train.py --activate                          # fit trên train, lưu artifacts/models/<version>/, ghi active.json
+.venv/Scripts/python scripts/demo_recommend.py --ratings "1:5,50:5,100:2"   # đề xuất cho hồ sơ movie_id:rating (không dùng ID trong train như user)
+.venv/Scripts/python scripts/demo_recommend.py --ml-user 1                  # hồ sơ = rating train của user MovieLens 1
+.venv/Scripts/python scripts/demo_recommend.py --check                      # độ trễ và kiểm tra fold-in trên mọi user train
+```
+
+**Backend API (giai đoạn 5, đã kiểm chứng):**
+
+```bash
+.venv/Scripts/python scripts/seed_db.py     # nạp phim + hồ sơ MovieLens (rating train) + 3 tài khoản mẫu (admin / datasci / demo)
+.venv/Scripts/python -m uvicorn backend.app.main:app --port 8000    # Swagger: http://localhost:8000/docs
+.venv/Scripts/python -m pytest              # gồm test API (DB tạm, không đụng knn.db)
+```
+
+`seed_db.py` tự sinh mật khẩu mẫu và JWT secret vào `.env` (đã bị `.gitignore`, không in ra màn hình) — mở `.env` để xem mật khẩu của `KNN_SEED_*`. Đăng nhập: `POST /api/v1/auth/login` với JSON `{"username","password"}`, dùng token ở header `Authorization: Bearer …`. Vai trò: `user` (phim, đánh giá, đề xuất), `admin` (`/admin/*`), `data_scientist` (`/ds/*`); quyền được kiểm tra phía server. Khởi động server nạp mô hình `is_active` trong DB (hoặc `artifacts/models/active.json`); nếu chưa có mô hình, `/recommendations` trả 503.
+
+**Giao diện web (giai đoạn 6, đã kiểm chứng trên trình duyệt):** chạy backend như trên rồi
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173 (Vite proxy /api → :8000)
+```
+
+Đăng ký tài khoản mới để vào luồng người dùng (onboarding → danh mục → đề xuất → "Vì sao?" → lịch sử), hoặc đăng nhập `admin` / `datasci` (mật khẩu trong `.env`) để xem trang Quản trị và Data Scientist (dữ liệu, huấn luyện, phiên bản, đánh giá). Menu và route đổi theo vai trò; truy cập sai vai trò chuyển sang trang 403.
+
+Người dùng web không có trong train nên mỗi lần đề xuất dựng lại hồ sơ truy vấn (`ml/models/foldin.py`): ước lượng bias hồ sơ, tính similarity với cộng đồng train, dự đoán KNN, loại phim đã chấm, lọc phim ít rating (`serving.min_item_ratings`). Hồ sơ rỗng → danh sách phổ biến. Backend (giai đoạn 5) sẽ gọi đúng các hàm này.
 
 ## 8. Đánh giá
 

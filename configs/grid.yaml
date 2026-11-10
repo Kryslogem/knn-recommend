@@ -9,3 +9,10 @@ reg:            # cặp (reg_u, reg_i)
   - [15, 10]
   - [25, 15]
 n_epochs: [10]
+
+# Ngưỡng số rating tối thiểu (trong train) để một phim được xếp hạng Top-N.
+# Chọn theo NDCG@10 trên validation sau khi đã chốt cấu hình KNN.
+min_item_ratings: [0, 5, 10, 20, 30, 50, 75, 100, 150]
+# NDCG tăng đơn điệu theo ngưỡng (danh sách dần thành "chỉ phim phổ biến"), nên bắt buộc giữ
+# tối thiểu tỉ lệ này của danh mục làm ứng viên. Đây là giả định thiết kế, có thể chỉnh.
+min_candidate_share: 0.25
