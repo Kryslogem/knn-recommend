@@ -1,0 +1,25 @@
+# Siêu tham số mặc định của KNNBaseline.
+# Giá trị khởi điểm (theo mặc định Surprise); sẽ được thay bằng cấu hình
+# chọn trên validation ở giai đoạn 3. KHÔNG chọn bằng tập test.
+algorithm: knn_baseline
+user_based: true
+
+baseline:
+  method: als
+  n_epochs: 10
+  reg_u: 15
+  reg_i: 10
+
+similarity:
+  name: pearson_baseline
+  shrinkage: 100
+  min_support: 1
+
+knn:
+  k: 40
+  min_k: 1
+
+serving:
+  top_n: 10
+  max_n: 50
+  popular_bayes_m: 20   # hệ số làm trơn cho danh sách phổ biến

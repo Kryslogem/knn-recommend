@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Môi trường
+.env
+
+# Dữ liệu gốc MovieLens: KHÔNG phân phối lại trong repo (xem README)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Artifact mô hình và báo cáo sinh tự động
+artifacts/models/*
+artifacts/reports/*
+!artifacts/models/.gitkeep
+!artifacts/reports/.gitkeep
+
+# Cơ sở dữ liệu vận hành
+*.db
+*.sqlite3
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

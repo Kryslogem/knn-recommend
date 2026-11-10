@@ -1,0 +1,34 @@
+# Cấu hình dữ liệu — dùng bởi scripts/prepare_data.py
+source:
+  name: MovieLens 100K
+  url: https://files.grouplens.org/datasets/movielens/ml-100k.zip
+  homepage: https://grouplens.org/datasets/movielens/100k/
+  # SHA-256 của file zip; điền sau lần tải đầu tiên và kiểm chứng ở các lần sau
+  sha256: 50d2a982c66986937beb9ffb3aa76efe955bf3d5c6b761f4e3a7cd717c6a3229
+
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  report_dir: artifacts/reports
+
+files:
+  ratings: u.data      # tab-separated: user_id, movie_id, rating, timestamp
+  items: u.item        # '|'-separated, encoding latin-1
+  genres: u.genre
+  info: u.info
+  item_encoding: latin-1
+
+expected:
+  n_users: 943
+  n_items: 1682
+  n_ratings: 100000
+  rating_min: 1
+  rating_max: 5
+
+split:
+  strategy: per_user_random
+  seed: 42
+  train: 0.70
+  validation: 0.15
+  test: 0.15
+  # n_val = round(0.15*n), n_test = round(0.15*n), phần còn lại là train

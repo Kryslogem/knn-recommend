@@ -87,7 +87,36 @@ Python, pandas/NumPy, Streamlit, SQLite; có thể dùng Surprise làm bản tha
 | `tests/` | Kiểm tra thuật toán và tích hợp |
 | `docs/` | Báo cáo và sơ đồ |
 
-**Hướng dẫn chạy:** sẽ được bổ sung sau khi có mã nguồn. Hiện tại các đường dẫn trên là thiết kế, chưa phải cấu trúc ứng dụng đã được tạo. Khi triển khai, README phải bổ sung môi trường, lệnh cài đặt, chuẩn bị dữ liệu, huấn luyện, đánh giá và khởi động đã kiểm chứng.
+> **Cập nhật:** sản phẩm chuyển từ Streamlit sang website (backend FastAPI + frontend React). Kế hoạch triển khai đầy đủ: [PLAN.md](PLAN.md).
+
+**Hướng dẫn chạy (khung giai đoạn 0 — đã kiểm chứng trên Windows, Python 3.12, Node 24):**
+
+```bash
+# Backend
+python -m venv .venv
+.venv/Scripts/python -m pip install -r backend/requirements.txt   # Linux/macOS: .venv/bin/python
+cp .env.example .env
+.venv/Scripts/python -m uvicorn backend.app.main:app --reload --port 8000   # API docs: http://localhost:8000/docs
+
+# Frontend (terminal khác)
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+
+# Test
+.venv/Scripts/python -m pytest
+```
+
+**Chuẩn bị dữ liệu (giai đoạn 1, đã kiểm chứng):**
+
+```bash
+.venv/Scripts/python scripts/prepare_data.py --config configs/data.yaml   # tải, kiểm tra SHA-256, làm sạch, chia 70/15/15 (seed 42)
+.venv/Scripts/python scripts/make_eda_figures.py                          # biểu đồ EDA (chỉ dùng train)
+```
+
+Kết quả: `data/processed/{train,validation,test}.csv`, `split_manifest.json`, `artifacts/reports/data_report.json`. Dữ liệu gốc không nằm trong repo; script tải trực tiếp từ GroupLens.
+
+Các bước huấn luyện và đánh giá sẽ được bổ sung khi triển khai giai đoạn 2–4.
 
 ## 8. Đánh giá
 

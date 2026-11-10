@@ -1,0 +1,30 @@
+# Ghim phiên bản (Python 3.12, cài ngày 10/11/2026) — NFR02 tái lập.
+
+# Web / API
+fastapi==0.162.2
+uvicorn[standard]==0.54.0
+pydantic==2.14.3
+pydantic-settings==2.16.2
+python-multipart==0.0.33
+
+# Cơ sở dữ liệu
+SQLAlchemy==2.1.8
+
+# Xác thực
+PyJWT==2.15.1
+pwdlib[argon2]==0.3.1
+
+# ML / dữ liệu
+numpy==2.5.4
+scipy==1.18.1
+pandas==3.1.1
+PyYAML==6.0.3
+
+# Kiểm thử
+pytest==9.2.0
+httpx==0.28.1
+
+# Tùy chọn, chỉ cho tests/test_vs_surprise.py (cần trình biên dịch C trên Windows):
+# scikit-surprise
+truststore==0.10.5
+matplotlib==3.11.2
