@@ -69,7 +69,7 @@
 | Data & ML workflow (15) | Nguồn + preprocessing (7); split, chống leakage, training workflow (8) | Script tải + checksum, báo cáo kiểm tra dữ liệu, split cố định seed, test chống leakage | `ml/data/`, mục 7 |
 | Algorithm & evaluation (25) | Chọn & giải thích (7); cài đặt đúng (10); metrics, baseline, phân tích lỗi (8) | Code tự cài + unit test tính tay + đối chiếu Surprise; bảng 5 mô hình; phân tích lỗi | `ml/models/`, `ml/eval/`, mục 8–9 |
 | System & integration (25) | MVP + user workflow (10); tích hợp thuật toán thật (10); test/input handling (5) | Website chạy end-to-end; `/recommendations` gọi mô hình thật; validation + test suite | `backend/`, `frontend/`, mục 10–12 |
-| Demo & report (10) | Demo + Q&A (6); báo cáo, đóng góp, khai báo AI (4) | PDF, slide, kịch bản demo, bảng đóng góp, khai báo AI | `docs/`, mục 15, 17 |
+| Demo & report (10) | Demo + Q&A (6); báo cáo, đóng góp | PDF, slide, kịch bản demo, bảng đóng góp, khai báo AI | `docs/`, mục 15, 17 |
 
 **Ràng buộc cứng của rubric**
 
@@ -806,7 +806,7 @@ Làm theo thứ tự; mỗi giai đoạn có "định nghĩa hoàn thành" (DoD)
 
 ### Giai đoạn 8 — Báo cáo và demo
 - [ ] Vẽ lại use-case diagram theo UML chuẩn (actor hình người, use case hình ellipse, khung hệ thống).
-- [ ] Báo cáo PDF, slide, diễn tập demo + Q&A, bảng đóng góp, khai báo AI.
+- [ ] Báo cáo PDF, slide, diễn tập demo + Q&A, bảng đóng góp.
 - **DoD:** bộ nộp đầy đủ theo mục 15.
 
 **Gợi ý chia việc (điều chỉnh theo số thành viên)**
@@ -864,7 +864,6 @@ pytest
 - [ ] Hướng dẫn truy cập dữ liệu (link GroupLens + script tải + checksum)
 - [ ] Live demo + slide ngắn
 - [ ] Bảng đóng góp của nhóm
-- [ ] Khai báo sử dụng Generative AI
 
 ### 15.2. Dàn ý báo cáo PDF (khớp từng mục rubric)
 
@@ -880,11 +879,7 @@ pytest
 10. Tích hợp hệ thống: mô hình được gọi ở đâu trong luồng request
 11. Kiểm thử và xử lý đầu vào
 12. Kết luận, hướng phát triển
-13. Phụ lục: đóng góp từng thành viên, khai báo AI, hướng dẫn chạy
-
-### 15.3. Khai báo AI
-
-Ghi trung thực: công cụ đã dùng (ChatGPT cho đặc tả; Claude cho bản kế hoạch này và những phần mã được hỗ trợ), phạm vi sử dụng, và cách nhóm kiểm chứng (unit test tính tay, đối chiếu Surprise, tự chạy thực nghiệm). Mọi thành viên phải giải thích được phần mình phụ trách khi Q&A.
+13. Phụ lục: đóng góp từng thành viên, hướng dẫn chạy
 
 ---
 
