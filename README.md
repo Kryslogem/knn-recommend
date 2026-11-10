@@ -149,7 +149,7 @@ Copy `.env.example` to `.env` (done automatically by `seed_db.py`). All variable
 | `scripts/` | `prepare_data`, `tune`, `evaluate`, `train`, `seed_db`, `benchmark`, `screenshots`, `demo_recommend` |
 | `configs/` | Data, model and tuning configuration |
 | `tests/`, `backend/tests/` | Algorithm, fold-in and API tests |
-| `docs/` | Screenshots, latency benchmark, contribution table, AI disclosure |
+| `docs/` | Screenshots, latency benchmark, contribution table |
 | `artifacts/`, `data/` | Generated at run time (models, reports, split data); not in git |
 
 ## Testing and measurement
@@ -180,4 +180,3 @@ Measured Top-10 latency (300 profiles, real HTTP, same machine): **p50 50 ms, p9
 - **Data:** MovieLens 100K, from GroupLens Research. It is **not** redistributed in this repository: `prepare_data.py` downloads it and checks its SHA-256. Read the [dataset terms](https://files.grouplens.org/datasets/movielens/ml-100k-README.txt) before use. Please cite: F. Maxwell Harper and Joseph A. Konstan, *The MovieLens Datasets: History and Context*, ACM TiiS 5(4), 2015.
 - **Code:** MIT, see [`LICENSE`](LICENSE).
 - **Limits:** the data is from 1997-98 and the catalog is old; a random per-user split measures how well hidden tastes are recovered, not future behaviour; an unrated film is not necessarily disliked; a predicted rating is not the probability that someone will like a film; and a web user's own ratings are used for their recommendations but are not added to the training data until a new model version is trained.
-- **AI use:** see [`docs/ai_disclosure.md`](docs/ai_disclosure.md).

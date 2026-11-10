@@ -1,6 +1,7 @@
 {
   "name": "frontend",
   "private": true,
+  "author": "Nguyen Manh Tri Minh",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

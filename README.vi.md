@@ -84,4 +84,4 @@ KNNBaseline dự đoán điểm tốt nhất và đề xuất đa dạng hơn, n
 
 ## Dữ liệu, giấy phép, giới hạn
 
-Dữ liệu MovieLens 100K **không** được phân phối lại trong repo; script tải trực tiếp từ GroupLens (xem [điều khoản](https://files.grouplens.org/datasets/movielens/ml-100k-README.txt) và trích dẫn Harper & Konstan, 2015). Mã nguồn theo giấy phép MIT ([LICENSE](LICENSE)). Dữ liệu năm 1997–98 nên danh mục cũ; chia ngẫu nhiên đo khả năng khôi phục sở thích bị che chứ không dự báo tương lai; điểm dự đoán không phải xác suất thích. Khai báo sử dụng AI: [docs/ai_disclosure.md](docs/ai_disclosure.md).
+Dữ liệu MovieLens 100K **không** được phân phối lại trong repo; script tải trực tiếp từ GroupLens (xem [điều khoản](https://files.grouplens.org/datasets/movielens/ml-100k-README.txt) và trích dẫn Harper & Konstan, 2015). Mã nguồn theo giấy phép MIT ([LICENSE](LICENSE)). Dữ liệu năm 1997–98 nên danh mục cũ; chia ngẫu nhiên đo khả năng khôi phục sở thích bị che chứ không dự báo tương lai; điểm dự đoán không phải xác suất thích.
